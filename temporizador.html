@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Temporizador</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/temporizador.css">
+</head>
+<body>
+  <header>
+    <h1>⏱️ Temporizador</h1>
+    <p>Cuenta regresiva simple</p>
+  </header>
+
+  <main>
+    <a class="btn secondary back" href="index.html">← Volver a Casa</a>
+
+    <section class="card">
+      <div class="inputs" id="inputs">
+        <label>Horas
+          <input type="number" id="h" min="0" max="99" value="0" inputmode="numeric">
+        </label>
+        <label>Minutos
+          <input type="number" id="m" min="0" max="59" value="5" inputmode="numeric">
+        </label>
+        <label>Segundos
+          <input type="number" id="s" min="0" max="59" value="0" inputmode="numeric">
+        </label>
+      </div>
+
+      <div class="display" id="display" role="timer" aria-live="off">00:05:00</div>
+      <p class="status" id="status" aria-live="polite"></p>
+
+      <div class="controls">
+        <button class="btn" id="start">Iniciar</button>
+        <button class="btn secondary" id="pause" disabled>Pausar</button>
+        <button class="btn danger" id="reset">Reiniciar</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>webpagebetatest1</footer>
+
+  <script src="js/temporizador.js"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+.inputs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .75rem;
+}
+
+.inputs label {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+.inputs input {
+  width: 100%;
+  padding: .6rem;
+  border: 1px solid #475569;
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1.25rem;
+  text-align: center;
+}
+
+.inputs input:disabled { opacity: .5; }
+
+.display {
+  margin: 1.5rem 0 .5rem;
+  text-align: center;
+  font-size: clamp(2.5rem, 14vw, 4.5rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .05em;
+}
+
+.display.finished { color: var(--ok); animation: pulse 1s ease-in-out infinite; }
+
+.status {
+  min-height: 1.5em;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  justify-content: center;
+}
+
+@keyframes pulse {
+  50% { opacity: .45; }
+}
