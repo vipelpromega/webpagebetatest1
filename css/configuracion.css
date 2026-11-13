@@ -1,0 +1,26 @@
+.setting-row { margin-top: 1rem; }
+
+.setting-row > p { color: var(--muted); margin-bottom: .75rem; }
+
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: .75rem;
+}
+
+.theme-options .btn {
+  flex-direction: column;
+  padding: 1.25rem 1rem;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 2px solid transparent;
+}
+
+.theme-options .btn:hover { background: var(--hover); }
+
+.theme-options .btn.selected {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+
+.theme-options .emoji { font-size: 1.75rem; }

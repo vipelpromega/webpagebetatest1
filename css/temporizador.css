@@ -15,7 +15,7 @@
 .inputs input {
   width: 100%;
   padding: .6rem;
-  border: 1px solid #475569;
+  border: 1px solid var(--border-2);
   border-radius: 10px;
   background: var(--bg);
   color: var(--text);
