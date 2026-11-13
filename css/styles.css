@@ -15,6 +15,13 @@
   --border-2: #475569;
   --hover: #33435c;
   --radius: 14px;
+
+  /* Barra lateral flotante */
+  --btn: 48px;
+  --sb-pad: 12px;
+  --sb-gap: 16px;
+  --sb-collapsed: calc(var(--btn) + 2 * var(--sb-pad));
+  --sb-expanded: 220px;
 }
 
 :root[data-theme="light"] {
@@ -40,7 +47,7 @@
 body {
   min-height: 100vh;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -48,33 +55,45 @@ body {
   transition: background .2s, color .2s;
 }
 
+/* ---------- Barra lateral flotante ---------- */
 .sidebar {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  top: var(--sb-gap);
+  left: var(--sb-gap);
+  bottom: var(--sb-gap);
   z-index: 10;
-  align-self: flex-start;
-  height: 100vh;
-  width: 68px;
-  flex-shrink: 0;
+  width: var(--sb-collapsed);
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: .75rem;
-  padding: 1rem 0;
+  padding: var(--sb-pad);
   background: var(--panel);
-  border-right: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .3);
+  transition: width .2s ease;
 }
+
+.sb-open .sidebar { width: var(--sb-expanded); }
 
 .side-btn {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
+  justify-content: flex-start;
+  gap: .85rem;
+  width: 100%;
+  height: var(--btn);
+  flex-shrink: 0;
+  padding: 0 0 0 calc((var(--btn) - 26px) / 2);
+  border: 0;
   border-radius: 12px;
+  background: transparent;
   color: var(--muted);
+  font: inherit;
+  font-weight: 600;
   text-decoration: none;
+  cursor: pointer;
   transition: background .15s, color .15s;
 }
 
@@ -83,6 +102,7 @@ body {
 .side-btn svg {
   width: 26px;
   height: 26px;
+  flex-shrink: 0;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -90,15 +110,35 @@ body {
   stroke-linejoin: round;
 }
 
+.side-btn .label {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width .2s ease, opacity .15s ease;
+}
+
+.sb-open .side-btn .label {
+  max-width: 150px;
+  opacity: 1;
+}
+
 .side-btn:hover { background: var(--panel-2); color: var(--text); }
 .side-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .side-btn[aria-current="page"] { background: var(--accent); color: var(--on-accent); }
 
-/* Tooltip al pasar el cursor (o enfocar con teclado) */
+.side-divider {
+  height: 1px;
+  flex-shrink: 0;
+  background: var(--border);
+  margin: 0 .25rem;
+}
+
+/* Tooltip al pasar el cursor (o enfocar con teclado); solo con la barra contraída */
 .side-btn::after {
   content: attr(data-tooltip);
   position: absolute;
-  left: calc(100% + 12px);
+  left: calc(100% + 18px);
   top: 50%;
   transform: translate(-6px, -50%);
   padding: .35rem .7rem;
@@ -118,7 +158,7 @@ body {
 .side-btn::before {
   content: "";
   position: absolute;
-  left: calc(100% + 6px);
+  left: calc(100% + 12px);
   top: 50%;
   transform: translate(-6px, -50%);
   border: 6px solid transparent;
@@ -130,31 +170,32 @@ body {
   transition: opacity .15s, transform .15s, visibility .15s;
 }
 
-.side-btn:hover::after,
-.side-btn:focus-visible::after,
-.side-btn:hover::before,
-.side-btn:focus-visible::before {
+html:not(.sb-open) .side-btn:hover::after,
+html:not(.sb-open) .side-btn:focus-visible::after,
+html:not(.sb-open) .side-btn:hover::before,
+html:not(.sb-open) .side-btn:focus-visible::before {
   opacity: 1;
   visibility: visible;
   transform: translate(0, -50%);
 }
 
+/* ---------- Contenido ---------- */
 .page {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* deja libre el espacio de la barra contraída; al expandirse se superpone */
+  margin-left: calc(var(--sb-collapsed) + 2 * var(--sb-gap));
 }
 
-header, footer {
+header {
   padding: 1rem 1.25rem;
   text-align: center;
 }
 
 header h1 { font-size: 1.5rem; }
 header p { color: var(--muted); }
-
-footer { color: var(--muted); font-size: .85rem; }
 
 main {
   flex: 1;
@@ -200,6 +241,10 @@ main {
 .card h2 { margin-bottom: .5rem; }
 
 @media (max-width: 480px) {
-  .sidebar { width: 56px; }
-  .side-btn { width: 42px; height: 42px; }
+  :root {
+    --btn: 42px;
+    --sb-pad: 9px;
+    --sb-gap: 8px;
+    --sb-expanded: 200px;
+  }
 }
