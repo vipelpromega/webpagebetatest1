@@ -8,39 +8,48 @@
   <link rel="stylesheet" href="css/temporizador.css">
 </head>
 <body>
-  <header>
-    <h1>⏱️ Temporizador</h1>
-    <p>Cuenta regresiva simple</p>
-  </header>
+  <nav class="sidebar" aria-label="Navegación principal">
+    <a class="side-btn" href="index.html" aria-label="Casa" title="Casa">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
+    </a>
+    <a class="side-btn" href="temporizador.html" aria-label="Temporizador" title="Temporizador" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
+    </a>
+  </nav>
 
-  <main>
-    <a class="btn secondary back" href="index.html">← Volver a Casa</a>
+  <div class="page">
+    <header>
+      <h1>⏱️ Temporizador</h1>
+      <p>Cuenta regresiva simple</p>
+    </header>
 
-    <section class="card">
-      <div class="inputs" id="inputs">
-        <label>Horas
-          <input type="number" id="h" min="0" max="99" value="0" inputmode="numeric">
-        </label>
-        <label>Minutos
-          <input type="number" id="m" min="0" max="59" value="5" inputmode="numeric">
-        </label>
-        <label>Segundos
-          <input type="number" id="s" min="0" max="59" value="0" inputmode="numeric">
-        </label>
-      </div>
+    <main>
+      <section class="card">
+        <div class="inputs" id="inputs">
+          <label>Horas
+            <input type="number" id="h" min="0" max="99" value="0" inputmode="numeric">
+          </label>
+          <label>Minutos
+            <input type="number" id="m" min="0" max="59" value="5" inputmode="numeric">
+          </label>
+          <label>Segundos
+            <input type="number" id="s" min="0" max="59" value="0" inputmode="numeric">
+          </label>
+        </div>
 
-      <div class="display" id="display" role="timer" aria-live="off">00:05:00</div>
-      <p class="status" id="status" aria-live="polite"></p>
+        <div class="display" id="display" role="timer" aria-live="off">00:05:00</div>
+        <p class="status" id="status" aria-live="polite"></p>
 
-      <div class="controls">
-        <button class="btn" id="start">Iniciar</button>
-        <button class="btn secondary" id="pause" disabled>Pausar</button>
-        <button class="btn danger" id="reset">Reiniciar</button>
-      </div>
-    </section>
-  </main>
+        <div class="controls">
+          <button class="btn" id="start">Iniciar</button>
+          <button class="btn secondary" id="pause" disabled>Pausar</button>
+          <button class="btn danger" id="reset">Reiniciar</button>
+        </div>
+      </section>
+    </main>
 
-  <footer>webpagebetatest1</footer>
+    <footer>webpagebetatest1</footer>
+  </div>
 
   <script src="js/temporizador.js"></script>
 </body>
