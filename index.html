@@ -6,7 +6,10 @@
   <title>Casa</title>
   <script src="js/theme.js"></script>
   <script src="js/sidebar.js"></script>
+  <script src="js/auth-config.js"></script>
+  <script src="js/auth.js"></script>
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/auth.css">
 </head>
 <body>
   <nav class="sidebar" aria-label="Navegación principal">
@@ -19,7 +22,7 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
       <span class="label">Casa</span>
     </a>
-    <a class="side-btn" href="temporizador.html" aria-label="Temporizador" data-tooltip="Temporizador">
+    <a class="side-btn" data-acceso="miembro" href="temporizador.html" aria-label="Temporizador" data-tooltip="Temporizador">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
       <span class="label">Temporizador</span>
     </a>
@@ -37,7 +40,7 @@
 
     <main>
       <section class="card">
-        <h2>Bienvenido</h2>
+        <h2>Bienvenido, <span data-user-name>invitado</span></h2>
         <p>Esta es la página principal. Pronto agregaremos más funciones.</p>
       </section>
     </main>

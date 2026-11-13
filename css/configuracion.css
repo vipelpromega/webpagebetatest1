@@ -1,3 +1,7 @@
+.card + .card { margin-top: 1rem; }
+
+.muted { color: var(--muted); }
+
 .setting-row { margin-top: 1rem; }
 
 .setting-row > p { color: var(--muted); margin-bottom: .75rem; }
@@ -24,3 +28,11 @@
 }
 
 .theme-options .emoji { font-size: 1.75rem; }
+
+.cuenta .f-group { margin-top: 1rem; }
+
+.cuenta-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+}

@@ -6,7 +6,10 @@
   <title>Configuración</title>
   <script src="js/theme.js"></script>
   <script src="js/sidebar.js"></script>
+  <script src="js/auth-config.js"></script>
+  <script src="js/auth.js"></script>
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/auth.css">
   <link rel="stylesheet" href="css/configuracion.css">
 </head>
 <body>
@@ -20,7 +23,7 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
       <span class="label">Casa</span>
     </a>
-    <a class="side-btn" href="temporizador.html" aria-label="Temporizador" data-tooltip="Temporizador">
+    <a class="side-btn" data-acceso="miembro" href="temporizador.html" aria-label="Temporizador" data-tooltip="Temporizador">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
       <span class="label">Temporizador</span>
     </a>
@@ -51,6 +54,29 @@
               Claro
             </button>
           </div>
+        </div>
+      </section>
+      <section class="card cuenta">
+        <h2>Cuenta</h2>
+        <p class="muted" id="cuenta-info"></p>
+
+        <div id="cuenta-miembro" hidden>
+          <div class="f-group">
+            <label class="f-label" for="nuevo-nombre">Nombre de visualización:</label>
+            <div class="f-box">
+              <input class="f-input" id="nuevo-nombre" type="text" maxlength="30" autocomplete="off">
+            </div>
+          </div>
+          <p class="f-error" id="cuenta-msg" role="status"></p>
+          <div class="cuenta-botones">
+            <button class="btn" id="guardar-nombre" type="button">Guardar nombre</button>
+            <button class="btn secondary" id="cerrar-sesion" type="button">Cerrar sesión</button>
+          </div>
+        </div>
+
+        <div id="cuenta-invitado" hidden>
+          <p>Estás como invitado: algunas secciones están limitadas.</p>
+          <button class="btn" id="ir-registro" type="button" style="margin-top:.75rem">Registrarse o iniciar sesión</button>
         </div>
       </section>
     </main>
