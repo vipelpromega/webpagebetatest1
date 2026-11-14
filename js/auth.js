@@ -1,24 +1,19 @@
 // Sistema de acceso: código de administrador -> registro, inicio de sesión e invitado.
 //
-// IMPORTANTE: esta página es estática (no hay servidor). Las cuentas se guardan en el
-// navegador de cada persona (localStorage) y los códigos se comprueban en el propio
-// navegador. Sirve para controlar el acceso de forma básica, pero NO es seguridad real:
-// para eso hace falta un servidor. Ver README.md.
+// Las cuentas, los códigos (de un solo uso) y las sesiones viven en el servidor (Supabase):
+// ver supabase/schema.sql. Esta página solo muestra la interfaz y habla con las funciones
+// del servidor con la clave pública. Las secciones "solo para registrados" se ocultan en la
+// página, pero lo que de verdad protege los datos es el servidor.
 (function () {
   "use strict";
 
-  var K_USUARIOS = "usuarios";
   var K_SESION = "sesion";
   var K_INVITADO = "invitado";
-  var K_BLOQUEO = "bloqueoAuth";
-  var MAX_INTENTOS = 5;
-  var BLOQUEO_MS = 30000;
-  var ITERACIONES = 100000;
-  var MSG_CRYPTO = "Este navegador no permite el registro seguro. Abre la página desde https o localhost.";
-  var MSG_ERROR = "Ocurrió un error. Inténtalo de nuevo.";
+  var ESPERA_MS = 15000;
 
   var root = document.documentElement;
-  var enc = new TextEncoder();
+  var cfg = window.SUPABASE_CONFIG || {};
+  var CONFIGURADO = !!(cfg.url && cfg.clave);
 
   /* ---------- Almacenamiento ---------- */
   function leer(clave, porDefecto) {
@@ -31,20 +26,39 @@
     try { localStorage.setItem(clave, JSON.stringify(valor)); return true; }
     catch (e) { return false; }
   }
+  function quitar(clave) {
+    try { localStorage.removeItem(clave); } catch (e) { /* nada */ }
+  }
   function esInvitado() {
     try { return sessionStorage.getItem(K_INVITADO) === "1"; } catch (e) { return false; }
   }
-  function usuarios() { return leer(K_USUARIOS, {}); }
+
+  // Datos de la versión anterior (cuentas guardadas solo en el navegador): ya no se usan.
+  quitar("usuarios");
+  quitar("bloqueoAuth");
+
+  // Sesión guardada: { token, expira, perfil: { usuario, nombre, rol } }
+  function leerSesion() {
+    var s = leer(K_SESION, null);
+    if (!s) return null;
+    var valida = typeof s.token === "string" && s.token &&
+      s.perfil && typeof s.perfil.usuario === "string";
+    var exp = Date.parse(s.expira);
+    if (!valida || (!isNaN(exp) && exp <= Date.now())) {
+      quitar(K_SESION);
+      return null;
+    }
+    return s;
+  }
 
   function usuarioActual() {
-    var s = leer(K_SESION, null);
-    if (!s || !s.usuario) return null;
-    var u = usuarios()[s.usuario];
-    return u ? { usuario: u.usuario, nombre: u.nombre } : null;
+    var s = leerSesion();
+    if (!s) return null;
+    return { usuario: s.perfil.usuario, nombre: s.perfil.nombre, rol: s.perfil.rol };
   }
 
   function estado() {
-    if (usuarioActual()) return "usuario";
+    if (leerSesion()) return "usuario";
     if (esInvitado()) return "invitado";
     return null;
   }
@@ -55,115 +69,129 @@
   if (estadoInicial === "invitado") root.classList.add("guest");
   if (estadoInicial === "usuario") root.classList.add("member");
 
-  /* ---------- Criptografía ---------- */
-  function tieneCrypto() {
-    return !!(window.crypto && window.crypto.subtle && window.crypto.getRandomValues);
-  }
-  function hex(buf) {
-    return Array.prototype.map.call(new Uint8Array(buf), function (b) {
-      return ("0" + b.toString(16)).slice(-2);
-    }).join("");
-  }
-  function aB64(buf) {
-    return btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
-  }
-  function deB64(s) {
-    var bin = atob(s), a = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
-    return a;
-  }
-  function sha256Hex(texto) {
-    return crypto.subtle.digest("SHA-256", enc.encode(texto)).then(hex);
-  }
-  function derivar(clave, sal) {
-    return crypto.subtle.importKey("raw", enc.encode(clave), "PBKDF2", false, ["deriveBits"])
-      .then(function (k) {
-        return crypto.subtle.deriveBits(
-          { name: "PBKDF2", salt: sal, iterations: ITERACIONES, hash: "SHA-256" }, k, 256);
-      })
-      .then(aB64);
-  }
+  /* ---------- Comunicación con el servidor ---------- */
+  // Siempre devuelve un objeto { ok, ... }; nunca lanza errores.
+  function rpc(nombre, args) {
+    if (!CONFIGURADO) return Promise.resolve({ ok: false, error: "sin_config" });
 
-  /* ---------- Límite de intentos ---------- */
-  function segundosBloqueado() {
-    var b = leer(K_BLOQUEO, { n: 0, hasta: 0 });
-    var r = Math.ceil((b.hasta - Date.now()) / 1000);
-    return r > 0 ? r : 0;
-  }
-  function registrarFallo() {
-    var b = leer(K_BLOQUEO, { n: 0, hasta: 0 });
-    b.n = (b.n || 0) + 1;
-    if (b.n >= MAX_INTENTOS) { b.n = 0; b.hasta = Date.now() + BLOQUEO_MS; }
-    guardar(K_BLOQUEO, b);
-  }
-  function limpiarFallos() { guardar(K_BLOQUEO, { n: 0, hasta: 0 }); }
+    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var temporizador = ctl ? setTimeout(function () { ctl.abort(); }, ESPERA_MS) : null;
+    var fin = function (x) { if (temporizador) clearTimeout(temporizador); return x; };
 
-  /* ---------- Lógica de cuentas ---------- */
-  function validarCodigo(texto) {
-    var norm = String(texto || "").trim().toUpperCase();
-    if (!norm) return Promise.resolve(false);
-    var cfg = window.AUTH_CONFIG || {};
-    return sha256Hex(norm).then(function (h) {
-      return (cfg.codigos || []).some(function (c) { return String(c).toLowerCase() === h; });
+    return fetch(String(cfg.url).replace(/\/+$/, "") + "/rest/v1/rpc/" + nombre, {
+      method: "POST",
+      headers: { "apikey": cfg.clave, "Content-Type": "application/json" },
+      body: JSON.stringify(args || {}),
+      signal: ctl ? ctl.signal : undefined
+    }).then(function (resp) {
+      return resp.json().catch(function () { return null; }).then(function (datos) {
+        if (resp.ok && datos && typeof datos === "object" && "ok" in datos) return fin(datos);
+        if (resp.status === 401 || resp.status === 403) return fin({ ok: false, error: "clave" });
+        if (resp.status === 404 || (datos && datos.code === "PGRST202")) return fin({ ok: false, error: "sin_script" });
+        return fin({ ok: false, error: "servidor" });
+      });
+    }, function () {
+      return fin({ ok: false, error: "red" });
     });
   }
 
-  function registrar(d) {
+  function mensaje(r) {
+    switch (r && r.error) {
+      case "codigo_invalido": return "Código no válido.";
+      case "espera": return "Demasiados intentos. Espera " + (r.segundos || 30) + " s.";
+      case "nombre_formato": return "El nombre de visualización debe tener entre 1 y 30 caracteres.";
+      case "usuario_formato": return "El nombre de usuario debe tener de 3 a 20 caracteres: letras, números, punto, guion o guion bajo.";
+      case "clave_formato": return "La contraseña debe tener entre 8 y 72 caracteres.";
+      case "usuario_en_uso": return "Ese nombre de usuario ya está en uso.";
+      case "credenciales": return "Usuario o contraseña incorrectos.";
+      case "sesion": return "Tu sesión expiró. Vuelve a iniciar sesión.";
+      case "permiso": return "No tienes permiso para hacer esto.";
+      case "red": return "No se pudo conectar con el servidor. Revisa tu conexión.";
+      case "sin_config": return "La página aún no está conectada al servidor.";
+      case "sin_script": return "El servidor no está listo: falta ejecutar el script supabase/schema.sql.";
+      case "clave": return "La clave pública del servidor no es válida.";
+      default: return "Ocurrió un error. Inténtalo de nuevo.";
+    }
+  }
+
+  /* ---------- Validación previa (el servidor vuelve a validar todo) ---------- */
+  function validarRegistro(d) {
     var nombre = String(d.nombre || "").trim();
     var usuario = String(d.usuario || "").trim().toLowerCase();
-    var clave = String(d.clave || "");
+    var bytes = new TextEncoder().encode(String(d.clave || "")).length;
+    if (nombre.length < 1 || nombre.length > 30) return "nombre_formato";
+    if (!/^[a-z0-9._-]{3,20}$/.test(usuario)) return "usuario_formato";
+    if (bytes < 8 || bytes > 72) return "clave_formato";
+    return null;
+  }
 
-    if (nombre.length < 1 || nombre.length > 30)
-      return Promise.resolve({ ok: false, error: "El nombre de visualización debe tener entre 1 y 30 caracteres." });
-    if (!/^[a-z0-9._-]{3,20}$/.test(usuario))
-      return Promise.resolve({ ok: false, error: "El nombre de usuario debe tener de 3 a 20 caracteres: letras, números, punto, guion o guion bajo." });
-    if (clave.length < 8 || clave.length > 128)
-      return Promise.resolve({ ok: false, error: "La contraseña debe tener al menos 8 caracteres." });
-
-    var todos = usuarios();
-    if (todos[usuario])
-      return Promise.resolve({ ok: false, error: "Ese nombre de usuario ya está en uso." });
-
-    var sal = crypto.getRandomValues(new Uint8Array(16));
-    return derivar(clave, sal).then(function (hash) {
-      todos[usuario] = { usuario: usuario, nombre: nombre, sal: aB64(sal), hash: hash };
-      if (!guardar(K_USUARIOS, todos) || !guardar(K_SESION, { usuario: usuario }))
-        return { ok: false, error: "No se pudo guardar la cuenta en este navegador." };
+  /* ---------- Sesión ---------- */
+  function iniciarSesionLocal(r) {
+    var ok = guardar(K_SESION, { token: r.token, expira: r.expira, perfil: r.perfil });
+    if (ok) {
       try { sessionStorage.removeItem(K_INVITADO); } catch (e) { /* nada */ }
-      return { ok: true };
+    }
+    return ok;
+  }
+
+  function actualizarNombres() {
+    var u = usuarioActual();
+    document.querySelectorAll("[data-user-name]").forEach(function (n) {
+      n.textContent = u ? u.nombre : "invitado";
     });
   }
 
-  function iniciarSesion(usuario, clave) {
-    var key = String(usuario || "").trim().toLowerCase();
-    var u = usuarios()[key];
-    var fallo = { ok: false, error: "Usuario o contraseña incorrectos." };
-    if (!u) { registrarFallo(); return Promise.resolve(fallo); }
-    return derivar(String(clave || ""), deB64(u.sal)).then(function (hash) {
-      if (hash !== u.hash) { registrarFallo(); return fallo; }
-      limpiarFallos();
-      guardar(K_SESION, { usuario: key });
-      try { sessionStorage.removeItem(K_INVITADO); } catch (e) { /* nada */ }
-      return { ok: true };
-    });
+  function aplicarRol() {
+    var u = usuarioActual();
+    var esAdmin = !!u && u.rol === "admin";
+    document.querySelectorAll("[data-solo-admin]").forEach(function (n) { n.hidden = !esAdmin; });
   }
 
   function cambiarNombre(nuevo) {
     var nombre = String(nuevo || "").trim();
     if (nombre.length < 1 || nombre.length > 30)
-      return { ok: false, error: "El nombre debe tener entre 1 y 30 caracteres." };
-    var s = leer(K_SESION, null);
-    var todos = usuarios();
-    if (!s || !todos[s.usuario]) return { ok: false, error: "No hay una sesión iniciada." };
-    todos[s.usuario].nombre = nombre;
-    if (!guardar(K_USUARIOS, todos)) return { ok: false, error: "No se pudo guardar el cambio." };
-    return { ok: true, nombre: nombre };
+      return Promise.resolve({ ok: false, error: mensaje({ error: "nombre_formato" }) });
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: mensaje({ error: "sesion" }) });
+
+    return rpc("cambiar_nombre", { p_token: s.token, p_nombre: nombre }).then(function (r) {
+      if (r.ok) {
+        s.perfil.nombre = r.nombre;
+        guardar(K_SESION, s);
+        actualizarNombres();
+        return { ok: true, nombre: r.nombre };
+      }
+      if (r.error === "sesion") { quitar(K_SESION); location.reload(); }
+      return { ok: false, error: mensaje(r) };
+    });
   }
 
   function cerrarSesion() {
-    try { localStorage.removeItem(K_SESION); } catch (e) { /* nada */ }
+    var s = leerSesion();
+    quitar(K_SESION);
+    try { sessionStorage.removeItem(K_INVITADO); } catch (e) { /* nada */ }
+    var recargar = function () { location.reload(); };
+    if (!s) { recargar(); return; }
+    // Avisa al servidor para invalidar la sesión, pero sin quedarse esperando demasiado
+    Promise.race([
+      rpc("salir", { p_token: s.token }),
+      new Promise(function (res) { setTimeout(res, 1500); })
+    ]).then(recargar, recargar);
+  }
+
+  function salirDeInvitado() {
     try { sessionStorage.removeItem(K_INVITADO); } catch (e) { /* nada */ }
     location.reload();
+  }
+
+  // Solo administradores (el servidor lo comprueba)
+  function llamadaAdmin(nombre) {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: mensaje({ error: "sesion" }) });
+    return rpc(nombre, { p_token: s.token }).then(function (r) {
+      if (r.ok) return r;
+      return { ok: false, error: mensaje(r) };
+    });
   }
 
   window.Auth = {
@@ -171,8 +199,29 @@
     usuario: usuarioActual,
     cambiarNombre: cambiarNombre,
     cerrarSesion: cerrarSesion,
-    abrirRegistro: cerrarSesion
+    salirDeInvitado: salirDeInvitado,
+    crearCodigo: function () { return llamadaAdmin("crear_codigo"); },
+    listarCodigos: function () { return llamadaAdmin("listar_codigos"); }
   };
+
+  // Comprueba en segundo plano que la sesión sigue siendo válida en el servidor
+  function validarSesionEnSegundoPlano() {
+    var s = leerSesion();
+    if (!s) return;
+    rpc("yo", { p_token: s.token }).then(function (r) {
+      if (r.ok) {
+        s.perfil = r.perfil;
+        guardar(K_SESION, s);
+        actualizarNombres();
+        aplicarRol();
+        document.dispatchEvent(new CustomEvent("auth:perfil"));
+      } else if (r.error === "sesion") {
+        quitar(K_SESION);
+        location.reload();
+      }
+      // Si no hay conexión u ocurre otro error, se conserva la sesión guardada.
+    });
+  }
 
   /* ---------- Interfaz ---------- */
   var ICONO_OJO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -234,12 +283,12 @@
     var vistas = {};
     var tarjeta = el("div", { class: "gate-card" });
     var gate = el("div", { class: "gate", role: "dialog", "aria-modal": "true", "aria-label": "Acceso" }, tarjeta);
-    var codigoOk = false;
+    var codigoValidado = ""; // el código aprobado por el servidor, solo en memoria
 
-    function mostrar(nombre) {
+    function mostrar(nombre, textoError) {
       Object.keys(vistas).forEach(function (k) { vistas[k].seccion.hidden = k !== nombre; });
       var v = vistas[nombre];
-      v.error.textContent = "";
+      v.error.textContent = textoError || "";
       var primero = v.seccion.querySelector("input");
       if (primero) primero.focus();
     }
@@ -260,11 +309,15 @@
       return vistas[nombre];
     }
 
-    function conCrypto(error) {
-      if (!tieneCrypto()) { error.textContent = MSG_CRYPTO; return false; }
-      var espera = segundosBloqueado();
-      if (espera) { error.textContent = "Demasiados intentos. Espera " + espera + " s."; return false; }
-      return true;
+    // Ejecuta una acción con el botón bloqueado y textos de error uniformes
+    function enviar(vista, tarea) {
+      vista.error.textContent = "";
+      vista.boton.disabled = true;
+      var libre = function () { vista.boton.disabled = false; };
+      Promise.resolve().then(tarea).then(libre, function () {
+        libre();
+        vista.error.textContent = mensaje({});
+      });
     }
 
     /* Vista 1: código de administrador */
@@ -287,24 +340,19 @@
     });
     vCodigo.form.addEventListener("submit", function (e) {
       e.preventDefault();
-      vCodigo.error.textContent = "";
-      if (!conCrypto(vCodigo.error)) return;
-      vCodigo.boton.disabled = true;
-      validarCodigo(fCodigo.input.value).then(function (ok) {
-        vCodigo.boton.disabled = false;
-        if (ok) {
-          limpiarFallos();
-          codigoOk = true;
-          fCodigo.input.value = "";
-          mostrar("registro");
-        } else {
-          registrarFallo();
-          vCodigo.error.textContent = "Código no válido.";
-          fCodigo.input.select();
-        }
-      }).catch(function () {
-        vCodigo.boton.disabled = false;
-        vCodigo.error.textContent = MSG_ERROR;
+      var codigo = fCodigo.input.value;
+      if (!codigo.trim()) { vCodigo.error.textContent = "Escribe el código."; return; }
+      enviar(vCodigo, function () {
+        return rpc("verificar_codigo", { p_codigo: codigo }).then(function (r) {
+          if (r.ok) {
+            codigoValidado = codigo;
+            fCodigo.input.value = "";
+            mostrar("registro");
+          } else {
+            vCodigo.error.textContent = mensaje(r);
+            if (r.error === "codigo_invalido") fCodigo.input.select();
+          }
+        });
       });
     });
 
@@ -318,7 +366,7 @@
       ayuda: "De 3 a 20 caracteres: letras, números, punto, guion o guion bajo."
     });
     var fClave = campo({
-      id: "clave", etiqueta: "Contraseña:", oculto: true, queOcultar: "contraseña", max: 128,
+      id: "clave", etiqueta: "Contraseña:", oculto: true, queOcultar: "contraseña", max: 72,
       autocomplete: "new-password", ayuda: "Mínimo 8 caracteres."
     });
     var vRegistro = nuevaVista("registro", function (form, error, boton) {
@@ -333,26 +381,33 @@
     });
     vRegistro.form.addEventListener("submit", function (e) {
       e.preventDefault();
-      vRegistro.error.textContent = "";
-      if (!codigoOk) { mostrar("codigo"); return; }
-      if (!tieneCrypto()) { vRegistro.error.textContent = MSG_CRYPTO; return; }
-      vRegistro.boton.disabled = true;
-      registrar({
-        nombre: fNombre.input.value, usuario: fUsuario.input.value, clave: fClave.input.value
-      }).then(function (r) {
-        if (r.ok) { location.reload(); return; }
-        vRegistro.boton.disabled = false;
-        vRegistro.error.textContent = r.error;
-      }).catch(function () {
-        vRegistro.boton.disabled = false;
-        vRegistro.error.textContent = MSG_ERROR;
+      if (!codigoValidado) { mostrar("codigo"); return; }
+      var datos = { nombre: fNombre.input.value, usuario: fUsuario.input.value, clave: fClave.input.value };
+      var falla = validarRegistro(datos);
+      if (falla) { vRegistro.error.textContent = mensaje({ error: falla }); return; }
+      enviar(vRegistro, function () {
+        return rpc("registrar", {
+          p_codigo: codigoValidado, p_nombre: datos.nombre, p_usuario: datos.usuario, p_clave: datos.clave
+        }).then(function (r) {
+          if (r.ok) {
+            if (iniciarSesionLocal(r)) { location.reload(); return; }
+            vRegistro.error.textContent = "La cuenta se creó, pero no se pudo guardar la sesión en este navegador. Inicia sesión.";
+            return;
+          }
+          if (r.error === "codigo_invalido") {
+            codigoValidado = "";
+            mostrar("codigo", mensaje(r));
+            return;
+          }
+          vRegistro.error.textContent = mensaje(r);
+        });
       });
     });
 
     /* Vista 3: iniciar sesión */
     var lUsuario = campo({ id: "login-usuario", etiqueta: "Nombre de usuario:", max: 20, autocomplete: "username" });
     var lClave = campo({
-      id: "login-clave", etiqueta: "Contraseña:", oculto: true, queOcultar: "contraseña", max: 128,
+      id: "login-clave", etiqueta: "Contraseña:", oculto: true, queOcultar: "contraseña", max: 72,
       autocomplete: "current-password"
     });
     var vLogin = nuevaVista("login", function (form, error, boton) {
@@ -366,17 +421,20 @@
     });
     vLogin.form.addEventListener("submit", function (e) {
       e.preventDefault();
-      vLogin.error.textContent = "";
-      if (!conCrypto(vLogin.error)) return;
-      vLogin.boton.disabled = true;
-      iniciarSesion(lUsuario.input.value, lClave.input.value).then(function (r) {
-        if (r.ok) { location.reload(); return; }
-        vLogin.boton.disabled = false;
-        vLogin.error.textContent = r.error;
-        lClave.input.select();
-      }).catch(function () {
-        vLogin.boton.disabled = false;
-        vLogin.error.textContent = MSG_ERROR;
+      if (!lUsuario.input.value.trim() || !lClave.input.value) {
+        vLogin.error.textContent = "Escribe tu usuario y tu contraseña.";
+        return;
+      }
+      enviar(vLogin, function () {
+        return rpc("entrar", { p_usuario: lUsuario.input.value, p_clave: lClave.input.value }).then(function (r) {
+          if (r.ok) {
+            if (iniciarSesionLocal(r)) { location.reload(); return; }
+            vLogin.error.textContent = "No se pudo guardar la sesión en este navegador.";
+            return;
+          }
+          vLogin.error.textContent = mensaje(r);
+          if (r.error === "credenciales") lClave.input.select();
+        });
       });
     });
 
@@ -406,7 +464,7 @@
             el("h2", {}, "Solo para usuarios registrados"),
             el("p", { class: "locked-text" },
               "Como invitado no puedes usar esta sección. Regístrate con un código de administrador o inicia sesión."),
-            el("button", { type: "button", class: "btn", onclick: cerrarSesion }, "Registrarse o iniciar sesión")));
+            el("button", { type: "button", class: "btn", onclick: salirDeInvitado }, "Registrarse o iniciar sesión")));
         pagina.insertBefore(aviso, principal);
       }
     }
@@ -414,11 +472,10 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     var st = estado();
-    var u = usuarioActual();
-    document.querySelectorAll("[data-user-name]").forEach(function (n) {
-      n.textContent = u ? u.nombre : "invitado";
-    });
+    actualizarNombres();
+    aplicarRol();
     if (!st) construirGate();
     else if (st === "invitado") aplicarRestriccionesDeInvitado();
+    else validarSesionEnSegundoPlano();
   });
 })();

@@ -6,7 +6,7 @@
   <title>Configuración</title>
   <script src="js/theme.js"></script>
   <script src="js/sidebar.js"></script>
-  <script src="js/auth-config.js"></script>
+  <script src="js/supabase-config.js"></script>
   <script src="js/auth.js"></script>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/auth.css">
@@ -108,6 +108,35 @@
               <div class="setting-control">
                 <button class="btn" id="ir-registro" type="button">Registrarse o iniciar sesión</button>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="group" data-solo-admin hidden>
+        <h2 class="group-title">Administración</h2>
+        <div class="settings">
+          <div class="setting-card">
+            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9"/><path d="M16 7l3 3"/><path d="M14 9l2 2"/></svg></span>
+            <div class="setting-text">
+              <div class="setting-title">Códigos de registro</div>
+              <div class="setting-desc" id="codigos-resumen">Cargando…</div>
+              <p class="f-error" id="codigos-msg" role="status"></p>
+            </div>
+            <div class="setting-control">
+              <button class="btn" id="generar-codigo" type="button">Generar código</button>
+            </div>
+          </div>
+
+          <div class="setting-card" id="codigo-nuevo" hidden>
+            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg></span>
+            <div class="setting-text">
+              <div class="setting-title">Código nuevo (de un solo uso)</div>
+              <div class="setting-desc">Cópialo ahora: no se vuelve a mostrar.</div>
+              <code class="codigo-valor" id="codigo-valor"></code>
+            </div>
+            <div class="setting-control">
+              <button class="btn secondary" id="copiar-codigo" type="button">Copiar</button>
             </div>
           </div>
         </div>

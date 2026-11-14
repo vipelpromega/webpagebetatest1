@@ -84,3 +84,20 @@
   .setting-control { width: 100%; justify-content: flex-end; }
   .setting-control .f-box { flex: 1; width: auto; }
 }
+
+/* Panel de administrador */
+.codigo-valor {
+  display: block;
+  margin-top: 6px;
+  padding: 6px 10px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  background: var(--field);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm);
+  font-family: "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+  font-size: 15px;
+  letter-spacing: .04em;
+  user-select: all;
+}
