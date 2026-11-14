@@ -403,7 +403,7 @@
       if (pagina && principal) {
         var aviso = el("div", { class: "locked-main" },
           el("section", { class: "card" },
-            el("h2", {}, "🔒 Solo para usuarios registrados"),
+            el("h2", {}, "Solo para usuarios registrados"),
             el("p", { class: "locked-text" },
               "Como invitado no puedes usar esta sección. Regístrate con un código de administrador o inicia sesión."),
             el("button", { type: "button", class: "btn", onclick: cerrarSesion }, "Registrarse o iniciar sesión")));

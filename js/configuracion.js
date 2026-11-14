@@ -49,7 +49,7 @@
       Auth.cerrarSesion();
     });
   } else if (estado === "invitado") {
-    info.textContent = "Entraste como invitado.";
+    document.getElementById("cuenta-sesion").hidden = true;
     bloqueInvitado.hidden = false;
     document.getElementById("ir-registro").addEventListener("click", () => {
       Auth.abrirRegistro();

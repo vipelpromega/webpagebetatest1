@@ -35,48 +35,81 @@
 
   <div class="page">
     <header>
-      <h1>⚙️ Configuración</h1>
+      <h1>Configuración</h1>
       <p>Personaliza la página</p>
     </header>
 
     <main>
-      <section class="card">
-        <h2>Tema</h2>
-        <div class="setting-row">
-          <p>Elige cómo quieres ver la página. Se guarda en este navegador.</p>
-          <div class="theme-options" role="group" aria-label="Tema">
-            <button class="btn" data-theme-option="dark" aria-pressed="false">
-              <span class="emoji" aria-hidden="true">🌙</span>
-              Oscuro
-            </button>
-            <button class="btn" data-theme-option="light" aria-pressed="false">
-              <span class="emoji" aria-hidden="true">☀️</span>
-              Claro
-            </button>
+      <section class="group">
+        <h2 class="group-title">Personalización</h2>
+        <div class="settings">
+          <div class="setting-card">
+            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18z" fill="currentColor" stroke="none"/></svg></span>
+            <div class="setting-text">
+              <div class="setting-title">Elige tu modo</div>
+              <div class="setting-desc">Se guarda en este navegador</div>
+            </div>
+            <div class="setting-control">
+              <div class="segmented" role="group" aria-label="Tema">
+                <button type="button" class="seg" data-theme-option="dark" aria-pressed="false">Oscuro</button>
+                <button type="button" class="seg" data-theme-option="light" aria-pressed="false">Claro</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
-      <section class="card cuenta">
-        <h2>Cuenta</h2>
-        <p class="muted" id="cuenta-info"></p>
 
-        <div id="cuenta-miembro" hidden>
-          <div class="f-group">
-            <label class="f-label" for="nuevo-nombre">Nombre de visualización:</label>
-            <div class="f-box">
-              <input class="f-input" id="nuevo-nombre" type="text" maxlength="30" autocomplete="off">
+      <section class="group">
+        <h2 class="group-title">Cuenta</h2>
+        <div class="settings">
+          <div class="setting-card" id="cuenta-sesion">
+            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg></span>
+            <div class="setting-text">
+              <div class="setting-title">Sesión</div>
+              <div class="setting-desc" id="cuenta-info"></div>
             </div>
           </div>
-          <p class="f-error" id="cuenta-msg" role="status"></p>
-          <div class="cuenta-botones">
-            <button class="btn" id="guardar-nombre" type="button">Guardar nombre</button>
-            <button class="btn secondary" id="cerrar-sesion" type="button">Cerrar sesión</button>
-          </div>
-        </div>
 
-        <div id="cuenta-invitado" hidden>
-          <p>Estás como invitado: algunas secciones están limitadas.</p>
-          <button class="btn" id="ir-registro" type="button" style="margin-top:.75rem">Registrarse o iniciar sesión</button>
+          <div class="settings" id="cuenta-miembro" hidden>
+            <div class="setting-card">
+              <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span>
+              <div class="setting-text">
+                <label class="setting-title" for="nuevo-nombre">Nombre de visualización:</label>
+                <div class="setting-desc">Puede cambiarlo cuando quiera</div>
+                <p class="f-error" id="cuenta-msg" role="status"></p>
+              </div>
+              <div class="setting-control">
+                <div class="f-box">
+                  <input class="f-input" id="nuevo-nombre" type="text" maxlength="30" autocomplete="off">
+                </div>
+                <button class="btn" id="guardar-nombre" type="button">Guardar</button>
+              </div>
+            </div>
+
+            <div class="setting-card">
+              <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></span>
+              <div class="setting-text">
+                <div class="setting-title">Cerrar sesión</div>
+                <div class="setting-desc">Volverás a la pantalla de acceso</div>
+              </div>
+              <div class="setting-control">
+                <button class="btn secondary" id="cerrar-sesion" type="button">Cerrar sesión</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings" id="cuenta-invitado" hidden>
+            <div class="setting-card">
+              <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg></span>
+              <div class="setting-text">
+                <div class="setting-title">Estás como invitado</div>
+                <div class="setting-desc">Algunas secciones están limitadas</div>
+              </div>
+              <div class="setting-control">
+                <button class="btn" id="ir-registro" type="button">Registrarse o iniciar sesión</button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>

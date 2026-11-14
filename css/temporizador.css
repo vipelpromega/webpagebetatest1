@@ -1,37 +1,47 @@
 .inputs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: .75rem;
+  gap: 12px;
 }
 
 .inputs label {
   display: flex;
   flex-direction: column;
-  gap: .35rem;
+  gap: 6px;
   color: var(--muted);
-  font-size: .9rem;
 }
 
 .inputs input {
   width: 100%;
-  padding: .6rem;
-  border: 1px solid var(--border-2);
-  border-radius: 10px;
-  background: var(--bg);
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--field-border);
+  border-bottom-color: var(--field-border-bottom);
+  border-radius: var(--radius-sm);
+  outline: 0;
+  background: var(--field);
   color: var(--text);
-  font-size: 1.25rem;
+  font: inherit;
+  font-size: 20px;
   text-align: center;
+  transition: background .083s linear;
 }
-
+.inputs input:hover { background: var(--field-hover); }
+.inputs input:focus {
+  background: var(--field-focus);
+  border-bottom-color: var(--accent);
+  box-shadow: inset 0 -1px 0 var(--accent);
+}
 .inputs input:disabled { opacity: .5; }
 
 .display {
-  margin: 1.5rem 0 .5rem;
+  margin: 1.75rem 0 .25rem;
   text-align: center;
-  font-size: clamp(2.5rem, 14vw, 4.5rem);
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 16vw, 5.5rem);
+  font-weight: 300;
   font-variant-numeric: tabular-nums;
-  letter-spacing: .05em;
+  line-height: 1.1;
 }
 
 .display.finished { color: var(--ok); animation: pulse 1s ease-in-out infinite; }
@@ -46,7 +56,7 @@
 .controls {
   display: flex;
   flex-wrap: wrap;
-  gap: .75rem;
+  gap: 8px;
   justify-content: center;
 }
 
