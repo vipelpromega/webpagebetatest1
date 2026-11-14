@@ -1,21 +1,25 @@
 -- =====================================================================
---  webpagebetatest1 · Cuentas y códigos de administrador en Supabase
+--  webpagebetatest1 · Cuentas, códigos de registro y panel de administración
 --
 --  Cómo usarlo: Supabase -> SQL Editor -> New query -> pega TODO este
---  archivo -> Run. Se puede ejecutar más de una vez sin problema.
+--  archivo -> Run. Se puede ejecutar más de una vez sin problema (también
+--  encima de una versión anterior: la actualiza).
 --
 --  Diseño:
---   * Las tablas NO son accesibles desde la página (sin permisos para
---     anon/authenticated y con RLS activado). Solo se puede entrar por las
+--   * Las tablas NO son accesibles desde ninguna página (sin permisos para
+--     anon/authenticated y con RLS activado). Solo se entra por las
 --     funciones de abajo, que validan todo en el servidor.
---   * Las contraseñas se guardan con bcrypt; los códigos y las sesiones,
---     solo como huella SHA-256 (nunca en claro).
---   * Los códigos son de un solo uso y hay límite de intentos fallidos.
+--   * Web pública (clave "anon"): verificar código, registrarse, entrar...
+--   * Panel de administración (rol "authenticated" = inicio de sesión con
+--     Google): solo funciona si el usuario está en la tabla `admins` Y ha
+--     verificado el segundo paso (TOTP, nivel aal2). Se comprueba aquí,
+--     en el servidor; esconder la página no es la seguridad.
+--   * Contraseñas con bcrypt; códigos y sesiones solo como huella SHA-256.
 -- =====================================================================
 
 create extension if not exists pgcrypto with schema extensions;
 
--- Esquema privado: funciones auxiliares que la página NO puede llamar
+-- Esquema privado: funciones auxiliares que nadie puede llamar desde fuera
 create schema if not exists privado;
 
 -- ---------------------------------------------------------------------
@@ -39,6 +43,17 @@ create table if not exists public.codigos (
   usado_por  uuid references public.usuarios (id) on delete set null
 );
 
+-- Columnas añadidas para el panel de administración
+alter table public.codigos
+  add column if not exists id               uuid not null default gen_random_uuid(),
+  add column if not exists etiqueta         text,         -- nombre de identificación
+  add column if not exists nota             text,
+  add column if not exists vista            text,         -- clave enmascarada (nunca la parte aleatoria)
+  add column if not exists revocado_en      timestamptz,
+  add column if not exists creado_por_admin uuid,
+  add column if not exists creado_por_email text;
+create unique index if not exists codigos_id_key on public.codigos (id);
+
 create table if not exists public.sesiones (
   token      text primary key,
   usuario_id uuid not null references public.usuarios (id) on delete cascade,
@@ -53,15 +68,37 @@ create table if not exists public.intentos (
   actualizado timestamptz not null default now()
 );
 
-alter table public.usuarios enable row level security;
-alter table public.codigos  enable row level security;
-alter table public.sesiones enable row level security;
-alter table public.intentos enable row level security;
+-- Administradores autorizados: se identifican por el ID de su cuenta de Supabase
+-- (no por el correo, que se podría suplantar si hubiera otro método de acceso).
+create table if not exists public.admins (
+  user_id uuid primary key,
+  email   text,
+  creado  timestamptz not null default now()
+);
 
-revoke all on table public.usuarios from public, anon, authenticated;
-revoke all on table public.codigos  from public, anon, authenticated;
-revoke all on table public.sesiones from public, anon, authenticated;
-revoke all on table public.intentos from public, anon, authenticated;
+-- Historial de acciones de administración
+create table if not exists public.auditoria (
+  id          bigint generated always as identity primary key,
+  cuando      timestamptz not null default now(),
+  actor       uuid,
+  actor_email text,
+  accion      text not null,
+  detalle     jsonb
+);
+
+alter table public.usuarios  enable row level security;
+alter table public.codigos   enable row level security;
+alter table public.sesiones  enable row level security;
+alter table public.intentos  enable row level security;
+alter table public.admins    enable row level security;
+alter table public.auditoria enable row level security;
+
+revoke all on table public.usuarios  from public, anon, authenticated;
+revoke all on table public.codigos   from public, anon, authenticated;
+revoke all on table public.sesiones  from public, anon, authenticated;
+revoke all on table public.intentos  from public, anon, authenticated;
+revoke all on table public.admins    from public, anon, authenticated;
+revoke all on table public.auditoria from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------
 --  Funciones auxiliares (esquema privado)
@@ -140,8 +177,82 @@ begin
   return v;
 end $$;
 
+-- ID del administrador que hace la llamada, o NULL si no está autorizado.
+-- Exige: sesión de usuario real (no la clave anon), estar en `admins` y haber
+-- verificado el segundo paso (aal2).
+create or replace function privado.admin_id()
+returns uuid language plpgsql stable security definer set search_path = '' as $$
+declare
+  c    jsonb := auth.jwt();
+  v_id uuid;
+begin
+  if c is null or coalesce(c ->> 'role', '') <> 'authenticated' then
+    return null;
+  end if;
+  begin
+    v_id := (c ->> 'sub')::uuid;
+  exception when others then
+    return null;
+  end;
+  if v_id is null or not exists (select 1 from public.admins where user_id = v_id) then
+    return null;
+  end if;
+  if coalesce(c ->> 'aal', '') <> 'aal2' then
+    return null;
+  end if;
+  return v_id;
+end $$;
+
+create or replace function privado.correo_admin()
+returns text language sql stable set search_path = '' as $$
+  select nullif(lower(coalesce(auth.jwt() ->> 'email', '')), '')
+$$;
+
+create or replace function privado.auditar(p_actor uuid, p_accion text, p_detalle jsonb)
+returns void language sql security definer set search_path = '' as $$
+  insert into public.auditoria (actor, actor_email, accion, detalle)
+  values (p_actor, privado.correo_admin(), p_accion, p_detalle)
+$$;
+
+-- Construye una clave a partir del nombre de identificación:
+--   1) Iniciales de las primeras 6 palabras -> UTF-8 (= ASCII en letras normales)
+--      -> binario -> hexadecimal (se escriben en grupos de 4).
+--   2) Nombre completo en MAYÚSCULAS -> bytes -> hexadecimal -> SHA-256 -> 4 primeros
+--      caracteres ("huella" del nombre).
+--   3) 16 caracteres hexadecimales ALEATORIOS (64 bits): esta parte es la que da la
+--      seguridad. Las dos primeras partes solo identifican; no son secretas.
+create or replace function privado.generar_clave(p_nombre text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_norm       text := upper(regexp_replace(btrim(coalesce(p_nombre, '')), '\s+', ' ', 'g'));
+  v_ini        text;
+  v_ini_hex    text;
+  v_nombre_hex text;
+  v_huella     text;
+  v_rand       text;
+  v_prefijo    text;
+begin
+  select coalesce(string_agg(left(w, 1), '' order by n), '')
+    into v_ini
+    from unnest((string_to_array(v_norm, ' '))[1:6]) with ordinality as t(w, n);
+
+  v_ini_hex    := upper(encode(convert_to(v_ini, 'UTF8'), 'hex'));
+  v_nombre_hex := upper(encode(convert_to(v_norm, 'UTF8'), 'hex'));
+  v_huella     := upper(substr(encode(sha256(convert_to(v_nombre_hex, 'UTF8')), 'hex'), 1, 4));
+  v_rand       := upper(encode(extensions.gen_random_bytes(8), 'hex'));
+  v_prefijo    := regexp_replace(v_ini_hex, '(.{4})(?=.)', '\1-', 'g') || '-' || v_huella;
+
+  return jsonb_build_object(
+    'codigo', v_prefijo || '-' || substr(v_rand, 1, 4) || '-' || substr(v_rand, 5, 4)
+                        || '-' || substr(v_rand, 9, 4) || '-' || substr(v_rand, 13, 4),
+    'vista', v_prefijo || '-••••-••••-••••-••••',
+    'iniciales', v_ini,
+    'iniciales_hex', v_ini_hex,
+    'huella', v_huella);
+end $$;
+
 -- ---------------------------------------------------------------------
---  Funciones que usa la página (se llaman con la clave pública)
+--  Web pública (se llaman con la clave pública "anon")
 -- ---------------------------------------------------------------------
 
 -- 1) Comprueba un código SIN gastarlo
@@ -158,7 +269,7 @@ begin
 
   if exists (select 1 from public.codigos
               where hash = privado.hash_texto(upper(btrim(coalesce(p_codigo, ''))))
-                and usado_en is null) then
+                and usado_en is null and revocado_en is null) then
     return jsonb_build_object('ok', true);
   end if;
 
@@ -185,7 +296,8 @@ begin
   end if;
 
   -- Primero el código: así quien no tiene uno no puede averiguar qué usuarios existen
-  if not exists (select 1 from public.codigos where hash = v_hash and usado_en is null) then
+  if not exists (select 1 from public.codigos
+                  where hash = v_hash and usado_en is null and revocado_en is null) then
     perform privado.registrar_fallo(v_clave, 8, 60);
     return jsonb_build_object('ok', false, 'error', 'codigo_invalido');
   end if;
@@ -205,7 +317,7 @@ begin
 
   -- Gasta el código de forma atómica
   update public.codigos set usado_en = now()
-   where hash = v_hash and usado_en is null
+   where hash = v_hash and usado_en is null and revocado_en is null
   returning rol into v_rol;
   if not found then
     perform privado.registrar_fallo(v_clave, 8, 60);
@@ -316,69 +428,141 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- 7) Solo administradores: generar un código nuevo (se muestra una única vez)
-create or replace function public.crear_codigo(p_token text)
+-- Versión anterior: los códigos ya no se crean desde la web pública, sino desde el
+-- panel de administración (más abajo). Se eliminan esas funciones.
+drop function if exists public.crear_codigo(text);
+drop function if exists public.listar_codigos(text);
+
+-- ---------------------------------------------------------------------
+--  Panel de administración (rol "authenticated" + estar en `admins` + 2 pasos)
+-- ---------------------------------------------------------------------
+
+-- A) Comprobación de acceso
+create or replace function public.admin_yo()
 returns jsonb language plpgsql security definer set search_path = '' as $$
-declare
-  v        public.usuarios;
-  v_raw    text;
-  v_codigo text;
+declare v_admin uuid := privado.admin_id();
 begin
-  v := privado.usuario_de_token(p_token);
-  if v.id is null then
-    return jsonb_build_object('ok', false, 'error', 'sesion');
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
   end if;
-  if v.rol <> 'admin' then
-    return jsonb_build_object('ok', false, 'error', 'permiso');
-  end if;
-
-  v_raw := upper(encode(extensions.gen_random_bytes(8), 'hex'));
-  v_codigo := 'ADM-' || substr(v_raw, 1, 4) || '-' || substr(v_raw, 5, 4)
-                     || '-' || substr(v_raw, 9, 4) || '-' || substr(v_raw, 13, 4);
-
-  insert into public.codigos (hash, rol, creado_por)
-  values (privado.hash_texto(v_codigo), 'miembro', v.id);
-
-  return jsonb_build_object('ok', true, 'codigo', v_codigo);
+  return jsonb_build_object('ok', true, 'user_id', v_admin, 'email', privado.correo_admin());
 end $$;
 
--- 8) Solo administradores: resumen de códigos
-create or replace function public.listar_codigos(p_token text)
+-- B) Estado en vivo
+create or replace function public.admin_estado()
 returns jsonb language plpgsql security definer set search_path = '' as $$
-declare v public.usuarios;
+declare v_admin uuid := privado.admin_id();
 begin
-  v := privado.usuario_de_token(p_token);
-  if v.id is null then
-    return jsonb_build_object('ok', false, 'error', 'sesion');
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
   end if;
-  if v.rol <> 'admin' then
-    return jsonb_build_object('ok', false, 'error', 'permiso');
-  end if;
-
   return jsonb_build_object(
     'ok', true,
-    'sin_usar', (select count(*) from public.codigos where usado_en is null),
-    'usados',   (select count(*) from public.codigos where usado_en is not null),
-    'recientes', coalesce((
-      select jsonb_agg(x) from (
-        select c.creado, c.usado_en, u.usuario as usado_por
-          from public.codigos c
-          left join public.usuarios u on u.id = c.usado_por
-         order by c.creado desc
-         limit 20) x), '[]'::jsonb));
+    'hora', now(),
+    'version', current_setting('server_version'),
+    'db_bytes', pg_database_size(current_database()),
+    'usuarios', (select count(*) from public.usuarios),
+    'sesiones_activas', (select count(*) from public.sesiones where expira > now()),
+    'claves_sin_usar', (select count(*) from public.codigos where usado_en is null and revocado_en is null),
+    'claves_usadas', (select count(*) from public.codigos where usado_en is not null),
+    'claves_revocadas', (select count(*) from public.codigos where revocado_en is not null and usado_en is null),
+    'bloqueos_activos', (select count(*) from public.intentos where hasta is not null and hasta > now()));
+end $$;
+
+-- C) Crear una clave (se devuelve completa UNA sola vez; en la base solo queda su huella)
+create or replace function public.admin_crear_clave(p_nombre text, p_nota text default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_admin  uuid := privado.admin_id();
+  v_nombre text := btrim(coalesce(p_nombre, ''));
+  v_nota   text := nullif(btrim(coalesce(p_nota, '')), '');
+  v_gen    jsonb;
+  v_id     uuid;
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  if char_length(v_nombre) not between 2 and 80 or v_nombre !~ '[[:alpha:]]' then
+    return jsonb_build_object('ok', false, 'error', 'nombre_formato');
+  end if;
+  if v_nota is not null and char_length(v_nota) > 200 then
+    return jsonb_build_object('ok', false, 'error', 'nota_formato');
+  end if;
+
+  v_gen := privado.generar_clave(v_nombre);
+
+  insert into public.codigos (hash, rol, etiqueta, nota, vista, creado_por_admin, creado_por_email)
+  values (privado.hash_texto(v_gen ->> 'codigo'), 'miembro', v_nombre, v_nota,
+          v_gen ->> 'vista', v_admin, privado.correo_admin())
+  returning id into v_id;
+
+  perform privado.auditar(v_admin, 'crear_clave',
+    jsonb_build_object('id', v_id, 'etiqueta', v_nombre));
+
+  return jsonb_build_object(
+    'ok', true, 'id', v_id, 'etiqueta', v_nombre,
+    'codigo', v_gen ->> 'codigo', 'vista', v_gen ->> 'vista');
+end $$;
+
+-- D) Listar claves con su estado y el usuario que las usó
+create or replace function public.admin_listar_claves()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_admin uuid := privado.admin_id();
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  return jsonb_build_object('ok', true, 'claves', coalesce((
+    select jsonb_agg(x order by x.creado desc) from (
+      select c.id, c.etiqueta, c.nota, c.vista,
+             case when c.revocado_en is not null and c.usado_en is null then 'revocada'
+                  when c.usado_en is not null then 'usada'
+                  else 'sin_usar' end as estado,
+             c.creado, c.usado_en, c.revocado_en, c.creado_por_email,
+             case when u.id is null then null
+                  else jsonb_build_object('usuario', u.usuario, 'nombre', u.nombre) end as usuario
+        from public.codigos c
+        left join public.usuarios u on u.id = c.usado_por
+       order by c.creado desc
+       limit 500) x), '[]'::jsonb));
+end $$;
+
+-- E) Revocar una clave que todavía no se ha usado
+create or replace function public.admin_revocar_clave(p_id uuid)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_admin uuid := privado.admin_id();
+  v       public.codigos;
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  select * into v from public.codigos where id = p_id;
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'no_encontrada');
+  end if;
+  if v.usado_en is not null then
+    return jsonb_build_object('ok', false, 'error', 'ya_usada');
+  end if;
+  if v.revocado_en is not null then
+    return jsonb_build_object('ok', true);
+  end if;
+  update public.codigos set revocado_en = now() where id = p_id;
+  perform privado.auditar(v_admin, 'revocar_clave',
+    jsonb_build_object('id', p_id, 'etiqueta', v.etiqueta));
+  return jsonb_build_object('ok', true);
 end $$;
 
 -- ---------------------------------------------------------------------
---  Permisos: solo estas funciones son públicas
+--  Permisos
 -- ---------------------------------------------------------------------
+-- Web pública: solo estas funciones (clave anon)
 revoke all on function public.verificar_codigo(text)               from public, anon, authenticated;
 revoke all on function public.registrar(text, text, text, text)    from public, anon, authenticated;
 revoke all on function public.entrar(text, text)                   from public, anon, authenticated;
 revoke all on function public.yo(text)                             from public, anon, authenticated;
 revoke all on function public.cambiar_nombre(text, text)           from public, anon, authenticated;
 revoke all on function public.salir(text)                          from public, anon, authenticated;
-revoke all on function public.crear_codigo(text)                   from public, anon, authenticated;
-revoke all on function public.listar_codigos(text)                 from public, anon, authenticated;
 
 grant execute on function public.verificar_codigo(text)            to anon, authenticated;
 grant execute on function public.registrar(text, text, text, text) to anon, authenticated;
@@ -386,19 +570,35 @@ grant execute on function public.entrar(text, text)                to anon, auth
 grant execute on function public.yo(text)                          to anon, authenticated;
 grant execute on function public.cambiar_nombre(text, text)        to anon, authenticated;
 grant execute on function public.salir(text)                       to anon, authenticated;
-grant execute on function public.crear_codigo(text)                to anon, authenticated;
-grant execute on function public.listar_codigos(text)              to anon, authenticated;
+
+-- Panel de administración: SOLO "authenticated" (y aun así exigen ser admin + 2 pasos)
+revoke all on function public.admin_yo()                           from public, anon, authenticated;
+revoke all on function public.admin_estado()                       from public, anon, authenticated;
+revoke all on function public.admin_crear_clave(text, text)        from public, anon, authenticated;
+revoke all on function public.admin_listar_claves()                from public, anon, authenticated;
+revoke all on function public.admin_revocar_clave(uuid)            from public, anon, authenticated;
+
+grant execute on function public.admin_yo()                        to authenticated;
+grant execute on function public.admin_estado()                    to authenticated;
+grant execute on function public.admin_crear_clave(text, text)     to authenticated;
+grant execute on function public.admin_listar_claves()             to authenticated;
+grant execute on function public.admin_revocar_clave(uuid)         to authenticated;
 
 -- ---------------------------------------------------------------------
---  Primer código de administrador (un solo uso). Se guarda solo su huella.
---  Con él se registra el primer administrador; después ese administrador
---  genera los demás códigos desde Configuración.
+--  Primer código de registro (un solo uso). Se guarda solo su huella.
 -- ---------------------------------------------------------------------
 insert into public.codigos (hash, rol)
 values ('ae743f10124d2d25cba71e08ef1aaf3c4426e10c93371731b2c6153d91a2954d', 'admin')
 on conflict (hash) do nothing;
 
--- Para crear otro código de administrador a mano (ejemplo), ejecuta:
---   insert into public.codigos (hash, rol)
---   values (encode(sha256(convert_to('ADM-XXXX-XXXX-XXXX-XXXX', 'UTF8')), 'hex'), 'admin');
--- (usa un código largo y aleatorio, en MAYÚSCULAS)
+-- ---------------------------------------------------------------------
+--  AUTORIZAR AL ADMINISTRADOR DEL PANEL (se hace a mano, una sola vez)
+--  1) Entra al panel con Google: te mostrará tu "ID de usuario" (un UUID).
+--  2) Ejecuta esto en el SQL Editor con TU ID y TU correo (no los subas al repositorio):
+--
+--     insert into public.admins (user_id, email)
+--     values ('00000000-0000-0000-0000-000000000000', 'tu-correo@gmail.com');
+--
+--  Para quitar el acceso a alguien:
+--     delete from public.admins where user_id = '...';
+-- ---------------------------------------------------------------------

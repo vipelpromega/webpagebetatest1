@@ -141,12 +141,6 @@
     });
   }
 
-  function aplicarRol() {
-    var u = usuarioActual();
-    var esAdmin = !!u && u.rol === "admin";
-    document.querySelectorAll("[data-solo-admin]").forEach(function (n) { n.hidden = !esAdmin; });
-  }
-
   function cambiarNombre(nuevo) {
     var nombre = String(nuevo || "").trim();
     if (nombre.length < 1 || nombre.length > 30)
@@ -184,24 +178,12 @@
     location.reload();
   }
 
-  // Solo administradores (el servidor lo comprueba)
-  function llamadaAdmin(nombre) {
-    var s = leerSesion();
-    if (!s) return Promise.resolve({ ok: false, error: mensaje({ error: "sesion" }) });
-    return rpc(nombre, { p_token: s.token }).then(function (r) {
-      if (r.ok) return r;
-      return { ok: false, error: mensaje(r) };
-    });
-  }
-
   window.Auth = {
     estado: estado,
     usuario: usuarioActual,
     cambiarNombre: cambiarNombre,
     cerrarSesion: cerrarSesion,
-    salirDeInvitado: salirDeInvitado,
-    crearCodigo: function () { return llamadaAdmin("crear_codigo"); },
-    listarCodigos: function () { return llamadaAdmin("listar_codigos"); }
+    salirDeInvitado: salirDeInvitado
   };
 
   // Comprueba en segundo plano que la sesión sigue siendo válida en el servidor
@@ -213,8 +195,6 @@
         s.perfil = r.perfil;
         guardar(K_SESION, s);
         actualizarNombres();
-        aplicarRol();
-        document.dispatchEvent(new CustomEvent("auth:perfil"));
       } else if (r.error === "sesion") {
         quitar(K_SESION);
         location.reload();
@@ -473,7 +453,6 @@
   document.addEventListener("DOMContentLoaded", function () {
     var st = estado();
     actualizarNombres();
-    aplicarRol();
     if (!st) construirGate();
     else if (st === "invitado") aplicarRestriccionesDeInvitado();
     else validarSesionEnSegundoPlano();

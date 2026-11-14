@@ -8,8 +8,8 @@ cualquier dispositivo.
 
 - **Casa** (`index.html`): página principal.
 - **Temporizador** (`temporizador.html`): cuenta regresiva. Solo para usuarios registrados.
-- **Configuración** (`configuracion.html`): tema claro/oscuro, cuenta (nombre de visualización,
-  cerrar sesión) y, para administradores, generar códigos de registro.
+- **Configuración** (`configuracion.html`): tema claro/oscuro y cuenta (nombre de visualización,
+  cerrar sesión).
 
 ## Acceso y registro
 
@@ -20,8 +20,10 @@ Al entrar aparece una pantalla que pide un **código de administrador**:
 2. "Ya tengo cuenta" → inicio de sesión (funciona desde cualquier dispositivo).
 3. "Entrar como invitado" → acceso limitado (por ahora el Temporizador está bloqueado).
 
-Los administradores generan códigos nuevos desde **Configuración → Administración → Generar
-código**. El código se muestra una sola vez; en el servidor solo se guarda su huella.
+Los códigos **no se generan en esta web**, sino en el **panel de administración**, que es una
+página aparte y privada (repositorio `webpagebetatest1-admin`). Allí un administrador autorizado
+(inicio de sesión con Google + verificación en dos pasos) crea, consulta y revoca códigos. Cada
+código se muestra completo una sola vez; en el servidor solo se guarda su huella.
 
 ## Puesta en marcha del servidor (una sola vez)
 
@@ -32,13 +34,9 @@ código**. El código se muestra una sola vez; en el servidor solo se guarda su 
 4. Regístrate con el código del primer administrador que está en `supabase/schema.sql`
    (en el script solo aparece su huella; el código en sí se entrega aparte).
 
-Para crear otro código de administrador a mano, ejecuta en el SQL Editor (con un código largo,
-aleatorio y en MAYÚSCULAS):
-
-```sql
-insert into public.codigos (hash, rol)
-values (encode(sha256(convert_to('ADM-XXXX-XXXX-XXXX-XXXX', 'UTF8')), 'hex'), 'admin');
-```
+Si ya tenías instalada una versión anterior, pega y ejecuta el script de nuevo: la actualiza sin
+perder cuentas ni códigos. Al actualizar desaparecen las funciones antiguas para generar códigos
+desde esta web (ahora se hace desde el panel de administración).
 
 ## Cómo está protegido
 
