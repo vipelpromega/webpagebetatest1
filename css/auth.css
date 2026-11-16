@@ -190,3 +190,5 @@ html.guest body[data-acceso="miembro"] main { display: none; }
   padding: 1rem 1.5rem 2rem;
 }
 .locked-text { margin-bottom: 1rem; color: var(--muted); }
+
+.gate-etiqueta { margin: -4px 0 12px; }

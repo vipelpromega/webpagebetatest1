@@ -20,23 +20,19 @@ Al entrar aparece una pantalla que pide un **código de administrador**:
 2. "Ya tengo cuenta" → inicio de sesión (funciona desde cualquier dispositivo).
 3. "Entrar como invitado" → acceso limitado (por ahora el Temporizador está bloqueado).
 
-Los códigos **no se generan en esta web**, sino en el **panel de administración**, que es una
-página aparte y privada (repositorio `webpagebetatest1-admin`). Allí un administrador autorizado
-(inicio de sesión con Google + verificación en dos pasos) crea, consulta y revoca códigos. Cada
-código se muestra completo una sola vez; en el servidor solo se guarda su huella.
+Los códigos **no se generan en esta web**, sino en el **panel de administración** (página aparte y
+privada, repositorio `adminwebpagetest1`). Allí un administrador autorizado (inicio de sesión con
+GitHub + verificación en dos pasos) crea, consulta y borra claves. Cada clave se muestra completa
+una sola vez; en el servidor solo se guarda su huella. Al introducir una clave válida, el registro
+muestra el "Nombre de identificación" con el que se creó.
 
-## Puesta en marcha del servidor (una sola vez)
+## Puesta en marcha del servidor
 
 1. Crea un proyecto en [supabase.com](https://supabase.com) (plan gratuito).
-2. En el proyecto: **SQL Editor → New query**, pega todo el contenido de
-   [`supabase/schema.sql`](supabase/schema.sql) y pulsa **Run**. Se puede repetir sin problema.
+2. **SQL Editor → New query**, pega [`supabase/schema.sql`](supabase/schema.sql) y pulsa **Run**.
+   (Para empezar de cero, ejecuta antes [`supabase/reiniciar.sql`](supabase/reiniciar.sql): borra cuentas y claves.)
 3. Pon la URL del proyecto y la clave pública (publishable) en `js/supabase-config.js`.
-4. Regístrate con el código del primer administrador que está en `supabase/schema.sql`
-   (en el script solo aparece su huella; el código en sí se entrega aparte).
-
-Si ya tenías instalada una versión anterior, pega y ejecuta el script de nuevo: la actualiza sin
-perder cuentas ni códigos. Al actualizar desaparecen las funciones antiguas para generar códigos
-desde esta web (ahora se hace desde el panel de administración).
+4. Autoriza al administrador del panel (ver el final de `schema.sql`) y crea claves desde el panel.
 
 ## Cómo está protegido
 

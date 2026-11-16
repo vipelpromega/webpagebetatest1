@@ -326,6 +326,7 @@
         return rpc("verificar_codigo", { p_codigo: codigo }).then(function (r) {
           if (r.ok) {
             codigoValidado = codigo;
+            etiquetaClave.textContent = r.etiqueta ? "Nombre de identificación: " + r.etiqueta : "";
             fCodigo.input.value = "";
             mostrar("registro");
           } else {
@@ -349,9 +350,11 @@
       id: "clave", etiqueta: "Contraseña:", oculto: true, queOcultar: "contraseña", max: 72,
       autocomplete: "new-password", ayuda: "Mínimo 8 caracteres."
     });
+    var etiquetaClave = el("p", { class: "f-hint gate-etiqueta" });
     var vRegistro = nuevaVista("registro", function (form, error, boton) {
       boton.textContent = "Crear cuenta";
       form.appendChild(el("h1", { class: "gate-prompt" }, "Crea tu cuenta"));
+      form.appendChild(etiquetaClave);
       form.appendChild(fNombre.grupo);
       form.appendChild(fUsuario.grupo);
       form.appendChild(fClave.grupo);

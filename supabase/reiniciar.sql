@@ -1,0 +1,22 @@
+-- Empezar de cero: BORRA cuentas, sesiones, claves y registros.
+-- Conserva la tabla `admins` (tu autorización del panel).
+-- Después ejecuta schema.sql para volver a crear todo.
+drop table if exists public.codigos, public.sesiones, public.usuarios,
+                     public.intentos, public.auditoria cascade;
+drop schema if exists privado cascade;
+
+drop function if exists public.verificar_codigo(text);
+drop function if exists public.registrar(text, text, text, text);
+drop function if exists public.entrar(text, text);
+drop function if exists public.yo(text);
+drop function if exists public.cambiar_nombre(text, text);
+drop function if exists public.salir(text);
+drop function if exists public.crear_codigo(text);
+drop function if exists public.listar_codigos(text);
+drop function if exists public.admin_yo();
+drop function if exists public.admin_estado();
+drop function if exists public.admin_crear_clave(text, text);
+drop function if exists public.admin_crear_clave(text);
+drop function if exists public.admin_listar_claves();
+drop function if exists public.admin_revocar_clave(uuid);
+drop function if exists public.admin_borrar_clave(uuid);
