@@ -197,6 +197,7 @@
         actualizarNombres();
       } else if (r.error === "sesion") {
         quitar(K_SESION);
+        try { sessionStorage.setItem("aviso", "Tu sesión se cerró (la cuenta ya no existe o expiró)."); } catch (e) { /* nada */ }
         location.reload();
       }
       // Si no hay conexión u ocurre otro error, se conserva la sesión guardada.
@@ -302,7 +303,7 @@
 
     /* Vista 1: código de administrador */
     var fCodigo = campo({
-      id: "codigo", oculto: true, queOcultar: "código", labelledby: "gate-prompt", max: 64
+      id: "codigo", oculto: true, queOcultar: "código", labelledby: "gate-prompt", max: 128
     });
     var vCodigo = nuevaVista("codigo", function (form, error, boton) {
       boton.textContent = "Registrarse";
@@ -422,7 +423,9 @@
     });
 
     document.body.appendChild(gate);
-    mostrar("codigo");
+    var aviso = "";
+    try { aviso = sessionStorage.getItem("aviso") || ""; sessionStorage.removeItem("aviso"); } catch (e) { /* nada */ }
+    mostrar("codigo", aviso);
   }
 
   function aplicarRestriccionesDeInvitado() {
@@ -458,6 +461,11 @@
     actualizarNombres();
     if (!st) construirGate();
     else if (st === "invitado") aplicarRestriccionesDeInvitado();
-    else validarSesionEnSegundoPlano();
+    else {
+      validarSesionEnSegundoPlano();
+      // Si un administrador borra la cuenta, la sesión se cierra sola en pocos segundos
+      setInterval(function () { if (!document.hidden) validarSesionEnSegundoPlano(); }, 20000);
+      document.addEventListener("visibilitychange", function () { if (!document.hidden) validarSesionEnSegundoPlano(); });
+    }
   });
 })();

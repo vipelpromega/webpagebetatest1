@@ -1,0 +1,95 @@
+/* =========================================================
+   Animaciones: suaves, rápidas y sin molestar
+   (se desactivan si el sistema pide "reducir movimiento")
+   ========================================================= */
+:root { --ease-out: cubic-bezier(.16, 1, .3, 1); }
+
+@keyframes m-arriba   { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes m-escala   { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes m-izquierda{ from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@keyframes m-fundido  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes m-deriva   { from { transform: translate3d(-3%, -2%, 0) scale(1); } to { transform: translate3d(3%, 2%, 0) scale(1.08); } }
+@keyframes m-pulso    { 50% { opacity: .45; } }
+@keyframes m-sacudir  { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+
+/* Luz de fondo que se mueve despacio */
+body::before {
+  content: ""; position: fixed; inset: -15%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(40% 35% at 20% 15%, var(--mica-1), transparent 70%),
+    radial-gradient(35% 35% at 85% 85%, var(--mica-2), transparent 70%);
+  animation: m-deriva 22s ease-in-out infinite alternate;
+}
+
+/* Barra lateral y contenido */
+.sidebar { animation: m-izquierda .55s var(--ease-out) both; }
+.page header { animation: m-arriba .5s var(--ease-out) both; }
+.page main > * { animation: m-arriba .55s var(--ease-out) both; }
+.page main > :nth-child(1) { animation-delay: 150ms; }
+.page main > :nth-child(2) { animation-delay: 220ms; }
+.page main > :nth-child(3) { animation-delay: 290ms; }
+.page main > :nth-child(4) { animation-delay: 360ms; }
+.page main > :nth-child(5) { animation-delay: 430ms; }
+.page main > :nth-child(6) { animation-delay: 500ms; }
+.page main > :nth-child(7) { animation-delay: 570ms; }
+.page main > :nth-child(8) { animation-delay: 640ms; }
+
+.side-btn svg { transition: transform .2s var(--ease-out); }
+.side-btn:hover svg { transform: scale(1.12); }
+.side-btn:active svg { transform: scale(.92); }
+
+/* Tarjetas y botones */
+.card, .stat, .fila { transition: transform .2s var(--ease-out), box-shadow .2s, border-color .2s; }
+.card:hover, .stat:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0, 0, 0, .16); }
+.btn, .gate-btn { transition: background .083s linear, transform .12s var(--ease-out), box-shadow .2s; }
+.btn:hover, .gate-btn:hover { box-shadow: 0 3px 10px rgba(0, 0, 0, .18); }
+.btn:active, .gate-btn:active { transform: scale(.98); }
+.f-box { transition: box-shadow .2s, background-color .15s; }
+
+/* Pantalla de acceso */
+.gate { animation: m-fundido .35s ease both; }
+.gate-card { animation: m-escala .5s var(--ease-out) both; }
+.gate-card section:not([hidden]) > form > * { animation: m-arriba .4s var(--ease-out) both; }
+.gate-card section:not([hidden]) > form > :nth-child(2) { animation-delay: 50ms; }
+.gate-card section:not([hidden]) > form > :nth-child(3) { animation-delay: 100ms; }
+.gate-card section:not([hidden]) > form > :nth-child(4) { animation-delay: 150ms; }
+.gate-card section:not([hidden]) > form > :nth-child(5) { animation-delay: 200ms; }
+.gate-card section:not([hidden]) > form > :nth-child(n+6) { animation-delay: 250ms; }
+.f-error:not(:empty) { animation: m-sacudir .35s ease; }
+
+/* Tablas, listas y estados */
+.tabla tbody tr { animation: m-arriba .4s var(--ease-out) both; }
+.tabla tbody tr:nth-child(1) { animation-delay: 35ms; }
+.tabla tbody tr:nth-child(2) { animation-delay: 70ms; }
+.tabla tbody tr:nth-child(3) { animation-delay: 105ms; }
+.tabla tbody tr:nth-child(4) { animation-delay: 140ms; }
+.tabla tbody tr:nth-child(5) { animation-delay: 175ms; }
+.tabla tbody tr:nth-child(6) { animation-delay: 210ms; }
+.tabla tbody tr:nth-child(7) { animation-delay: 245ms; }
+.tabla tbody tr:nth-child(8) { animation-delay: 280ms; }
+.tabla tbody tr:nth-child(9) { animation-delay: 315ms; }
+.tabla tbody tr:nth-child(10) { animation-delay: 350ms; }
+.tabla tbody tr:nth-child(11) { animation-delay: 385ms; }
+.tabla tbody tr:nth-child(12) { animation-delay: 420ms; }
+.tabla tbody tr:nth-child(13) { animation-delay: 455ms; }
+.tabla tbody tr:nth-child(14) { animation-delay: 490ms; }
+.tabla tbody tr:nth-child(15) { animation-delay: 525ms; }
+.tabla tbody tr { transition: background .15s; }
+.tabla tbody tr:hover { background: var(--subtle-hover); }
+.lista-simple > * { animation: m-arriba .4s var(--ease-out) both; }
+.lista-simple > :nth-child(2) { animation-delay: 50ms; }
+.lista-simple > :nth-child(3) { animation-delay: 100ms; }
+.lista-simple > :nth-child(4) { animation-delay: 150ms; }
+.lista-simple > :nth-child(n+5) { animation-delay: 200ms; }
+.resultado, .aviso { animation: m-escala .45s var(--ease-out) both; }
+.badge { transition: transform .15s; }
+progress { transition: none; }
+.cargando { animation: m-pulso 1.2s ease-in-out infinite; }
+.consola-linea { animation: m-fundido .2s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important;
+  }
+}
