@@ -60,6 +60,7 @@
       fotoMsg.textContent = "";
       const r = await Auth.cambiarAvatar(archivo);
       fotoCambiar.disabled = fotoQuitar.disabled = false;
+      if (r.cancelado) return;
       fotoMsg.classList.toggle("ok", r.ok);
       fotoMsg.textContent = r.ok ? (archivo ? "Foto actualizada." : "Se usará la letra de tu usuario.") : r.error;
     };

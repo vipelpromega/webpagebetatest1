@@ -214,3 +214,55 @@ html.guest body[data-acceso="miembro"] main { display: none; }
 .bienvenida { display: flex; align-items: center; gap: 16px; }
 .bienvenida .avatar { animation: m-escala .5s var(--ease-out, ease) both; }
 .setting-icon .avatar { width: 40px; height: 40px; font-size: 18px; }
+
+/* ---------- Botón de cuenta en la barra + menú ---------- */
+.side-btn .avatar-barra { width: calc(var(--icon) + 8px); height: calc(var(--icon) + 8px); margin-left: -4px; font-size: 13px; transition: transform .2s var(--ease-out, ease), box-shadow .2s; }
+.side-btn:hover .avatar-barra { transform: scale(1.08); }
+.side-btn.abierto { background: var(--nav-selected); }
+.side-btn.abierto::after { visibility: hidden !important; opacity: 0 !important; }
+.side-btn.abierto .avatar-barra, .side-btn.actual .avatar-barra { box-shadow: 0 0 0 2px var(--flyout), 0 0 0 4px var(--accent); }
+
+.cuenta-menu {
+  position: fixed; z-index: 60; min-width: 230px; padding: 6px;
+  background: var(--flyout); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-flyout);
+  animation: m-escala .22s var(--ease-out, ease) both; transform-origin: left bottom;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .cuenta-menu { background: var(--flyout-glass); -webkit-backdrop-filter: blur(30px) saturate(1.25); backdrop-filter: blur(30px) saturate(1.25); }
+}
+.cuenta-cab { display: flex; align-items: center; gap: 12px; padding: 8px 8px 10px; }
+.cuenta-datos { display: flex; flex-direction: column; min-width: 0; }
+.cuenta-datos strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cuenta-datos span { color: var(--muted); font-size: 12px; }
+.cuenta-item {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 36px; padding: 0 10px;
+  color: var(--text); font: inherit; text-decoration: none; text-align: left;
+  background: transparent; border: 0; border-radius: var(--radius-sm); cursor: pointer;
+}
+.cuenta-item:hover, .cuenta-item:focus-visible { background: var(--subtle-hover); outline: 0; }
+.cuenta-item:active { background: var(--subtle-active); }
+.cuenta-icono svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- Recorte de la foto ---------- */
+.recorte-fondo {
+  position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 1rem;
+  background: rgba(0, 0, 0, .55); animation: m-fundido .2s ease both;
+}
+.recorte {
+  width: min(100%, 340px); padding: 20px; text-align: center;
+  background: var(--flyout); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-dialog);
+  animation: m-escala .3s var(--ease-out, ease) both;
+}
+.recorte .gate-prompt { margin-bottom: 4px; }
+.recorte-lienzo {
+  display: block; width: 260px; max-width: 100%; aspect-ratio: 1; margin: 12px auto;
+  border-radius: var(--radius-sm); background: #111; cursor: grab; touch-action: none;
+}
+.recorte-lienzo.moviendo { cursor: grabbing; }
+.recorte-lienzo:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.recorte-zoom-fila { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.recorte-zoom { flex: 1; accent-color: var(--accent); }
+.recorte-botones { display: flex; justify-content: flex-end; gap: 8px; }
+html.gate-open body > .recorte-fondo { visibility: visible; }

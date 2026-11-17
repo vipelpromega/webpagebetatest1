@@ -151,8 +151,9 @@
     }
   }
 
-  // Reduce la imagen elegida a 160×160 (recortada al centro) para que pese poco.
-  function procesarImagen(file) {
+  // Editor de recorte: el usuario mueve y acerca la foto dentro de un círculo.
+  // Devuelve (promesa) la imagen final 160×160 en texto, o null si cancela.
+  function abrirRecorte(file) {
     return new Promise(function (res, rej) {
       if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 8 * 1024 * 1024) return rej("imagen_tipo");
       var fr = new FileReader();
@@ -160,27 +161,115 @@
       fr.onload = function () {
         var img = new Image();
         img.onerror = function () { rej("imagen_tipo"); };
-        img.onload = function () {
-          var T = 160, c = document.createElement("canvas");
-          c.width = c.height = T;
-          var lado = Math.min(img.width, img.height);
-          c.getContext("2d").drawImage(img, (img.width - lado) / 2, (img.height - lado) / 2, lado, lado, 0, 0, T, T);
-          var d = c.toDataURL("image/webp", 0.85);
-          if (d.indexOf("data:image/webp") !== 0) d = c.toDataURL("image/jpeg", 0.85);
-          if (d.length > 40000) d = c.toDataURL("image/jpeg", 0.6);
-          if (d.length > 40000) rej("imagen_tipo"); else res(d);
-        };
+        img.onload = function () { montar(img); };
         img.src = fr.result;
       };
       fr.readAsDataURL(file);
+
+      function montar(img) {
+        var S = 260, M = 6, C = S - 2 * M;           // lienzo, margen y lado del recorte
+        var escMin = C / Math.min(img.width, img.height);
+        var esc = escMin, ox = M + (C - img.width * esc) / 2, oy = M + (C - img.height * esc) / 2;
+        var previo = document.activeElement;
+
+        var canvas = el("canvas", { class: "recorte-lienzo", width: String(S), height: String(S), tabindex: "0",
+          role: "img", "aria-label": "Foto: arrastra para moverla; usa el control para acercar" });
+        var zoom = el("input", { type: "range", min: "100", max: "400", value: "100", class: "recorte-zoom", "aria-label": "Acercar" });
+        var cancelar = el("button", { type: "button", class: "btn secondary" }, "Cancelar");
+        var guardar = el("button", { type: "button", class: "btn" }, "Usar esta foto");
+        var fondo = el("div", { class: "recorte-fondo" },
+          el("div", { class: "recorte", role: "dialog", "aria-modal": "true", "aria-label": "Recortar foto de perfil" },
+            el("h2", { class: "gate-prompt" }, "Ajusta tu foto"),
+            el("p", { class: "f-hint" }, "Arrastra para moverla y usa el control para acercarla."),
+            canvas,
+            el("div", { class: "recorte-zoom-fila" }, el("span", { "aria-hidden": "true" }, "−"), zoom, el("span", { "aria-hidden": "true" }, "+")),
+            el("div", { class: "recorte-botones" }, cancelar, guardar)));
+        var ctx = canvas.getContext("2d");
+
+        function limitar() {
+          var w = img.width * esc, h = img.height * esc;
+          ox = Math.min(M, Math.max(M + C - w, ox));
+          oy = Math.min(M, Math.max(M + C - h, oy));
+        }
+        function dibujar() {
+          limitar();
+          ctx.clearRect(0, 0, S, S);
+          ctx.drawImage(img, ox, oy, img.width * esc, img.height * esc);
+          ctx.save();
+          ctx.fillStyle = "rgba(0,0,0,.55)";
+          ctx.beginPath(); ctx.rect(0, 0, S, S); ctx.arc(S / 2, S / 2, C / 2, 0, Math.PI * 2);
+          ctx.fill("evenodd");
+          ctx.restore();
+          ctx.strokeStyle = "rgba(255,255,255,.9)"; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(S / 2, S / 2, C / 2, 0, Math.PI * 2); ctx.stroke();
+        }
+        function acercar(nuevo) {                      // mantiene fijo el centro del círculo
+          nuevo = Math.min(escMin * 4, Math.max(escMin, nuevo));
+          var cx = (S / 2 - ox) / esc, cy = (S / 2 - oy) / esc;
+          esc = nuevo; ox = S / 2 - cx * esc; oy = S / 2 - cy * esc;
+          zoom.value = String(Math.round(esc / escMin * 100));
+          dibujar();
+        }
+        var arrastre = null;
+        canvas.addEventListener("pointerdown", function (e) {
+          arrastre = { x: e.clientX, y: e.clientY, ox: ox, oy: oy };
+          canvas.setPointerCapture(e.pointerId); canvas.classList.add("moviendo"); canvas.focus();
+        });
+        canvas.addEventListener("pointermove", function (e) {
+          if (!arrastre) return;
+          var k = S / canvas.getBoundingClientRect().width;
+          ox = arrastre.ox + (e.clientX - arrastre.x) * k; oy = arrastre.oy + (e.clientY - arrastre.y) * k;
+          dibujar();
+        });
+        var soltar = function () { arrastre = null; canvas.classList.remove("moviendo"); };
+        canvas.addEventListener("pointerup", soltar);
+        canvas.addEventListener("pointercancel", soltar);
+        canvas.addEventListener("wheel", function (e) { e.preventDefault(); acercar(esc * (e.deltaY < 0 ? 1.08 : 1 / 1.08)); }, { passive: false });
+        zoom.addEventListener("input", function () { acercar(escMin * Number(zoom.value) / 100); });
+        canvas.addEventListener("keydown", function (e) {
+          var paso = 10, usado = true;
+          if (e.key === "ArrowLeft") ox -= paso; else if (e.key === "ArrowRight") ox += paso;
+          else if (e.key === "ArrowUp") oy -= paso; else if (e.key === "ArrowDown") oy += paso;
+          else if (e.key === "+" || e.key === "=") { acercar(esc * 1.08); return e.preventDefault(); }
+          else if (e.key === "-") { acercar(esc / 1.08); return e.preventDefault(); }
+          else usado = false;
+          if (usado) { e.preventDefault(); dibujar(); }
+        });
+
+        function cerrar(valor) {
+          document.removeEventListener("keydown", tecla, true);
+          fondo.remove();
+          if (previo && previo.focus) previo.focus();
+          res(valor);
+        }
+        function tecla(e) { if (e.key === "Escape") { e.stopPropagation(); cerrar(null); } }
+        document.addEventListener("keydown", tecla, true);
+        cancelar.addEventListener("click", function () { cerrar(null); });
+        guardar.addEventListener("click", function () {
+          var T = 160, out = document.createElement("canvas");
+          out.width = out.height = T;
+          var sx = (M - ox) / esc, sy = (M - oy) / esc, lado = C / esc;
+          out.getContext("2d").drawImage(img, sx, sy, lado, lado, 0, 0, T, T);
+          var d = out.toDataURL("image/webp", 0.85);
+          if (d.indexOf("data:image/webp") !== 0) d = out.toDataURL("image/jpeg", 0.85);
+          if (d.length > 40000) d = out.toDataURL("image/jpeg", 0.6);
+          if (d.length > 40000) { cerrar(null); rej("imagen_tipo"); return; }
+          cerrar(d);
+        });
+
+        document.body.appendChild(fondo);
+        dibujar();
+        canvas.focus();
+      }
     });
   }
 
   function cambiarAvatar(file) {
     var s = leerSesion();
     if (!s) return Promise.resolve({ ok: false, error: mensaje({ error: "sesion" }) });
-    var preparar = file ? procesarImagen(file) : Promise.resolve(null);
+    var preparar = file ? abrirRecorte(file) : Promise.resolve(null);
     return preparar.then(function (datos) {
+      if (file && datos === null) return { ok: true, cancelado: true };
       return rpc("cambiar_avatar", { p_token: s.token, p_avatar: datos }).then(function (r) {
         if (r.ok) {
           s.perfil.avatar = r.avatar || null;
@@ -196,8 +285,16 @@
 
   function actualizarNombres() {
     var u = usuarioActual();
+    var lateral = document.querySelector(".side-btn .avatar-barra");
+    if (lateral && u) {
+      var bt = lateral.closest(".side-btn");
+      var tt = u.nombre + " · cuenta";
+      bt.setAttribute("aria-label", tt); bt.setAttribute("data-tooltip", tt);
+      var lb = bt.querySelector(".label"); if (lb) lb.textContent = u.nombre;
+    }
     document.querySelectorAll("[data-user-avatar]").forEach(function (n) {
-      if (u) { rellenarAvatar(n, u, true); n.hidden = false; } else n.hidden = true;
+      var barra = n.classList.contains("avatar-barra");
+      if (u) { rellenarAvatar(n, u, !barra); if (barra) n.classList.add("avatar-barra"); n.hidden = false; } else n.hidden = true;
     });
     document.querySelectorAll("[data-user-name]").forEach(function (n) {
       n.textContent = u ? u.nombre : "invitado";
@@ -435,7 +532,7 @@
       avatarError.textContent = "";
       var f = avatarArchivo.files && avatarArchivo.files[0];
       if (!f) return;
-      procesarImagen(f).then(function (d) { avatarElegido = d; pintarAvatar(); },
+      abrirRecorte(f).then(function (d) { if (d) { avatarElegido = d; pintarAvatar(); } avatarArchivo.value = ""; },
         function (c) { avatarError.textContent = mensaje({ error: c }); });
     });
     fUsuario.input.addEventListener("input", pintarAvatar);
@@ -552,12 +649,100 @@
     }
   }
 
+  var ICONO_AJUSTES = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+  var ICONO_FOTO = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 16l-5-5-8 8"/></svg>';
+  var ICONO_SALIR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>';
+
+  // En la barra, el botón de "Configuración" pasa a ser la foto del usuario;
+  // al pulsarla se abre un menú con las secciones de la cuenta.
+  function convertirBotonDeCuenta() {
+    var btn = document.querySelector('.side-btn.bottom[href="configuracion.html"]');
+    var u = usuarioActual();
+    if (!btn || !u) return;
+    var yaEstaEnConfig = btn.getAttribute("aria-current") === "page";
+    var icono = btn.querySelector("svg");
+    var avatar = el("span", {});
+    rellenarAvatar(avatar, u, false);
+    avatar.setAttribute("data-user-avatar", "");
+    avatar.classList.add("avatar-barra");
+    if (icono) btn.replaceChild(avatar, icono); else btn.insertBefore(avatar, btn.firstChild);
+    var etiqueta = btn.querySelector(".label");
+    btn.setAttribute("role", "button");
+    btn.setAttribute("aria-haspopup", "menu");
+    btn.setAttribute("aria-expanded", "false");
+    var poner = function () {
+      var t = u.nombre + " · cuenta";
+      btn.setAttribute("aria-label", t); btn.setAttribute("data-tooltip", t);
+      if (etiqueta) etiqueta.textContent = usuarioActual().nombre;
+    };
+    poner();
+
+    var menu = null;
+    function cerrar(devolverFoco) {
+      if (!menu) return;
+      menu.remove(); menu = null;
+      btn.setAttribute("aria-expanded", "false");
+      btn.classList.remove("abierto");
+      document.removeEventListener("pointerdown", fuera, true);
+      document.removeEventListener("keydown", teclas, true);
+      if (devolverFoco) btn.focus();
+    }
+    function fuera(e) { if (menu && !menu.contains(e.target) && !btn.contains(e.target)) cerrar(false); }
+    function teclas(e) {
+      if (!menu) return;
+      if (e.key === "Escape") { e.preventDefault(); cerrar(true); return; }
+      var items = Array.prototype.slice.call(menu.querySelectorAll('[role="menuitem"]'));
+      var i = items.indexOf(document.activeElement);
+      if (e.key === "ArrowDown") { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+      else if (e.key === "Tab") cerrar(false);
+    }
+    function abrir() {
+      var actual = usuarioActual() || u;
+      var cab = el("div", { class: "cuenta-cab" }, (function () { var a = el("span", {}); rellenarAvatar(a, actual, true); return a; })(),
+        el("div", { class: "cuenta-datos" }, el("strong", {}, actual.nombre), el("span", {}, "@" + actual.usuario)));
+      function item(texto, icono, accion, href) {
+        var n = href ? el("a", { class: "cuenta-item", role: "menuitem", href: href }) : el("button", { type: "button", class: "cuenta-item", role: "menuitem" });
+        var i = el("span", { class: "cuenta-icono", "aria-hidden": "true" });
+        i.innerHTML = icono;
+        n.appendChild(i); n.appendChild(document.createTextNode(texto));
+        if (accion) n.addEventListener("click", accion);
+        return n;
+      }
+      menu = el("div", { class: "cuenta-menu", role: "menu", "aria-label": "Cuenta" }, cab,
+        el("div", { class: "side-divider", role: "separator" }),
+        item("Configuración", ICONO_AJUSTES, null, "configuracion.html"),
+        item("Foto de perfil", ICONO_FOTO, null, "configuracion.html#foto"),
+        el("div", { class: "side-divider", role: "separator" }),
+        item("Cerrar sesión", ICONO_SALIR, function () { cerrar(false); cerrarSesion(); }));
+      document.body.appendChild(menu);
+      var r = btn.getBoundingClientRect();
+      menu.style.left = Math.round(r.right + 14) + "px";
+      menu.style.bottom = Math.max(8, Math.round(window.innerHeight - r.bottom)) + "px";
+      btn.setAttribute("aria-expanded", "true");
+      btn.classList.add("abierto");
+      document.addEventListener("pointerdown", fuera, true);
+      document.addEventListener("keydown", teclas, true);
+      menu.querySelector('[role="menuitem"]').focus();
+    }
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      if (menu) cerrar(false); else abrir();
+    });
+    btn.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowUp" && !menu) { e.preventDefault(); abrir(); }
+    });
+    window.addEventListener("resize", function () { cerrar(false); });
+    if (yaEstaEnConfig) btn.classList.add("actual");
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     var st = estado();
     actualizarNombres();
     if (!st) construirGate();
     else if (st === "invitado") aplicarRestriccionesDeInvitado();
     else {
+      convertirBotonDeCuenta();
       validarSesionEnSegundoPlano();
       // Si un administrador borra la cuenta, la sesión se cierra sola en pocos segundos
       setInterval(function () { if (!document.hidden) validarSesionEnSegundoPlano(); }, 20000);
