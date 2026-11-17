@@ -98,6 +98,7 @@
   function mensaje(r) {
     switch (r && r.error) {
       case "codigo_invalido": return "Código no válido.";
+      case "clave_actual": return "La contraseña actual no es correcta.";
       case "avatar_formato": return "La imagen no es válida o es demasiado grande.";
       case "imagen_tipo": return "Elige una imagen PNG, JPG o WebP.";
       case "espera": return "Demasiados intentos. Espera " + (r.segundos || 30) + " s.";
@@ -264,6 +265,19 @@
     });
   }
 
+  function cambiarClave(actual, nueva) {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: mensaje({ error: "sesion" }) });
+    if (String(actual || "") === "") return Promise.resolve({ ok: false, error: "Escribe tu contraseña actual." });
+    var bytes = new TextEncoder().encode(String(nueva || "")).length;
+    if (bytes < 8 || bytes > 72) return Promise.resolve({ ok: false, error: mensaje({ error: "clave_formato" }) });
+    return rpc("cambiar_clave", { p_token: s.token, p_actual: actual, p_nueva: nueva }).then(function (r) {
+      if (r.ok) return { ok: true };
+      if (r.error === "sesion") { quitar(K_SESION); location.reload(); }
+      return { ok: false, error: mensaje(r) };
+    });
+  }
+
   function cambiarAvatar(file) {
     var s = leerSesion();
     if (!s) return Promise.resolve({ ok: false, error: mensaje({ error: "sesion" }) });
@@ -343,6 +357,7 @@
     usuario: usuarioActual,
     cambiarNombre: cambiarNombre,
     cambiarAvatar: cambiarAvatar,
+    cambiarClave: cambiarClave,
     cerrarSesion: cerrarSesion,
     salirDeInvitado: salirDeInvitado
   };
@@ -625,6 +640,11 @@
     // Candado en los botones de la barra que requieren cuenta
     document.querySelectorAll('.side-btn[data-acceso="miembro"]').forEach(function (a) {
       a.classList.add("locked");
+      // Bloqueado de verdad: sin enlace, no se puede pulsar ni enfocar
+      a.removeAttribute("href");
+      a.setAttribute("aria-disabled", "true");
+      a.setAttribute("tabindex", "-1");
+      a.addEventListener("click", function (e) { e.preventDefault(); });
       var texto = (a.getAttribute("aria-label") || "") + " (requiere cuenta)";
       a.setAttribute("aria-label", texto);
       a.setAttribute("data-tooltip", texto);

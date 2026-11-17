@@ -84,3 +84,33 @@
   .setting-control { width: 100%; justify-content: flex-end; }
   .setting-control .f-box { flex: 1; width: auto; }
 }
+
+/* ---------- Subsecciones ---------- */
+.subnav { display: flex; gap: 4px; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+.tab {
+  position: relative; height: 36px; padding: 0 16px; color: var(--muted); font: inherit;
+  background: transparent; border: 0; border-radius: var(--radius-sm) var(--radius-sm) 0 0; cursor: pointer;
+  transition: color .15s, background .1s;
+}
+.tab:hover { background: var(--subtle-hover); color: var(--text); }
+.tab[aria-selected="true"] { color: var(--text); }
+.tab::after {
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 3px; border-radius: 3px;
+  background: var(--accent); transform: scaleX(0); transition: transform .25s var(--ease-out, ease);
+}
+.tab[aria-selected="true"]::after { transform: scaleX(1); }
+.subpanel { animation: m-arriba .35s var(--ease-out, ease) both; }
+.subpanel[hidden] { display: none; }
+
+/* ---------- Formulario de contraseña ---------- */
+.clave-form {
+  display: flex; flex-direction: column; gap: 4px; max-width: 420px;
+  margin: 4px 0 8px 40px; padding: 16px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  animation: m-arriba .3s var(--ease-out, ease) both;
+}
+.clave-form[hidden] { display: none; }
+.clave-botones { display: flex; gap: 8px; margin-top: 8px; }
+@media (max-width: 560px) { .clave-form { margin-left: 0; max-width: none; } }
+
+.setting-icon.con-foto { width: 40px; height: 40px; }

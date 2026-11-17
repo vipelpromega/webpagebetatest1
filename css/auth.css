@@ -157,7 +157,8 @@ html.gate-open body > *:not(.gate) { visibility: hidden; }
 .f-error.ok { color: var(--ok); }
 
 /* ---------- Restricciones para invitados ---------- */
-.side-btn.locked { opacity: .7; }
+.side-btn.locked { opacity: .55; cursor: not-allowed; }
+.side-btn.locked:hover { background: transparent; }
 
 .side-btn .lock {
   position: absolute;

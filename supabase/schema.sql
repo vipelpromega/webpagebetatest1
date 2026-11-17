@@ -494,6 +494,37 @@ begin
   return jsonb_build_object('ok', true, 'avatar', a);
 end $$;
 
+-- 5c) Cambiar la contraseña (pide la actual; cierra las demás sesiones de la cuenta)
+create or replace function public.cambiar_clave(p_token text, p_actual text, p_nueva text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v     public.usuarios;
+  v_ku  text;
+  v_seg int;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  v_ku := 'pw:' || v.id::text;
+  v_seg := privado.segundos_bloqueado(v_ku);
+  if v_seg > 0 then
+    return jsonb_build_object('ok', false, 'error', 'espera', 'segundos', v_seg);
+  end if;
+  if octet_length(coalesce(p_nueva, '')) < 8 or octet_length(p_nueva) > 72 then
+    return jsonb_build_object('ok', false, 'error', 'clave_formato');
+  end if;
+  if v.clave is distinct from extensions.crypt(coalesce(p_actual, ''), v.clave) then
+    perform privado.registrar_fallo(v_ku, 5, 60);
+    return jsonb_build_object('ok', false, 'error', 'clave_actual');
+  end if;
+  delete from public.intentos where clave = v_ku;
+  update public.usuarios set clave = extensions.crypt(p_nueva, extensions.gen_salt('bf', 10)) where id = v.id;
+  delete from public.sesiones where usuario_id = v.id and token <> privado.hash_texto(p_token);
+  perform privado.evento('clave_cambiada', jsonb_build_object('usuario', v.usuario));
+  return jsonb_build_object('ok', true);
+end $$;
+
 -- 6) Cerrar sesión
 create or replace function public.salir(p_token text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -631,6 +662,81 @@ begin
   perform privado.auditar(v_admin, 'borrar_clave',
     jsonb_build_object('id', p_id, 'etiqueta', v.etiqueta, 'cuenta_borrada', v_usuario));
   return jsonb_build_object('ok', true, 'cuenta_borrada', v_usuario);
+end $$;
+
+-- F2) Detalle de una clave (botón "Más información" de Perfiles)
+create or replace function public.admin_detalle_clave(p_id uuid)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_admin uuid := privado.admin_id();
+  v       public.codigos;
+  u       public.usuarios;
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  select * into v from public.codigos where id = p_id;
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'no_encontrada');
+  end if;
+  if v.usado_por is not null then
+    select * into u from public.usuarios where id = v.usado_por;
+  end if;
+  return jsonb_build_object(
+    'ok', true, 'id', v.id, 'etiqueta', v.etiqueta, 'vista', v.vista,
+    'estado', case when v.usado_en is not null then 'usada' else 'sin_usar' end,
+    'creado', v.creado, 'usado_en', v.usado_en, 'creado_por_email', v.creado_por_email,
+    'cuenta', case when u.id is null then null
+                   else jsonb_build_object('usuario', u.usuario, 'avatar', u.avatar) end);
+end $$;
+
+-- F3) Restablecer la contraseña de la cuenta de una clave.
+--     Exige la CONTRASEÑA MAESTRA, que solo se guarda (con bcrypt) en privado.secretos
+--     y solo se puede fijar desde el SQL Editor de Supabase (ver el final de este archivo).
+create or replace function public.admin_restablecer_clave(p_id uuid, p_maestra text, p_nueva text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_admin uuid := privado.admin_id();
+  v_ka    text;
+  v_seg   int;
+  v_hash  text;
+  v       public.codigos;
+  u       public.usuarios;
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  v_ka := 'maestra:' || v_admin::text;
+  v_seg := privado.segundos_bloqueado(v_ka);
+  if v_seg > 0 then
+    return jsonb_build_object('ok', false, 'error', 'espera', 'segundos', v_seg);
+  end if;
+  select valor into v_hash from privado.secretos where nombre = 'maestra';
+  if v_hash is null then
+    return jsonb_build_object('ok', false, 'error', 'maestra_no_definida');
+  end if;
+  if v_hash is distinct from extensions.crypt(coalesce(p_maestra, ''), v_hash) then
+    perform privado.registrar_fallo(v_ka, 5, 300);
+    perform privado.auditar(v_admin, 'maestra_fallida', null);
+    return jsonb_build_object('ok', false, 'error', 'maestra_incorrecta');
+  end if;
+  delete from public.intentos where clave = v_ka;
+  if octet_length(coalesce(p_nueva, '')) < 8 or octet_length(p_nueva) > 72 then
+    return jsonb_build_object('ok', false, 'error', 'clave_formato');
+  end if;
+  select * into v from public.codigos where id = p_id;
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'no_encontrada');
+  end if;
+  select * into u from public.usuarios where id = v.usado_por;
+  if u.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sin_cuenta');
+  end if;
+  update public.usuarios set clave = extensions.crypt(p_nueva, extensions.gen_salt('bf', 10)) where id = u.id;
+  delete from public.sesiones where usuario_id = u.id;
+  delete from public.intentos where clave = 'login:' || u.usuario;
+  perform privado.auditar(v_admin, 'restablecer_clave', jsonb_build_object('etiqueta', v.etiqueta, 'usuario', u.usuario));
+  return jsonb_build_object('ok', true);
 end $$;
 
 -- G) Registros (historial de acciones)
@@ -805,6 +911,9 @@ revoke all on function public.admin_crear_clave(text)              from public, 
 revoke all on function public.admin_listar_claves()                from public, anon, authenticated;
 revoke all on function public.admin_borrar_clave(uuid)             from public, anon, authenticated;
 revoke all on function public.admin_ver_clave(uuid)                from public, anon, authenticated;
+revoke all on function public.admin_detalle_clave(uuid)            from public, anon, authenticated;
+revoke all on function public.admin_restablecer_clave(uuid, text, text) from public, anon, authenticated;
+revoke all on function public.cambiar_clave(text, text, text)      from public, anon, authenticated;
 revoke all on function public.admin_registros(int)                 from public, anon, authenticated;
 revoke all on function public.admin_red()                          from public, anon, authenticated;
 revoke all on function public.admin_desbloquear(text, text)        from public, anon, authenticated;
@@ -816,6 +925,9 @@ grant execute on function public.admin_crear_clave(text)           to authentica
 grant execute on function public.admin_listar_claves()             to authenticated;
 grant execute on function public.admin_borrar_clave(uuid)          to authenticated;
 grant execute on function public.admin_ver_clave(uuid)             to authenticated;
+grant execute on function public.admin_detalle_clave(uuid)         to authenticated;
+grant execute on function public.admin_restablecer_clave(uuid, text, text) to authenticated;
+grant execute on function public.cambiar_clave(text, text, text)   to anon, authenticated;
 grant execute on function public.admin_registros(int)              to authenticated;
 grant execute on function public.admin_red()                       to authenticated;
 grant execute on function public.admin_desbloquear(text, text)     to authenticated;
@@ -831,4 +943,15 @@ grant execute on function public.admin_consola(text)               to authentica
 --
 --  Para quitar el acceso a alguien:
 --     delete from public.admins where user_id = '...';
+-- ---------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------
+--  CONTRASEÑA MAESTRA (solo tú). Fíjala UNA vez, desde el SQL Editor, cambiando el texto:
+--
+--    insert into privado.secretos (nombre, valor)
+--    values ('maestra', extensions.crypt('ESCRIBE-AQUI-TU-CONTRASEÑA', extensions.gen_salt('bf', 12)))
+--    on conflict (nombre) do update set valor = excluded.valor;
+--
+--  Se guarda cifrada con bcrypt (nadie, ni tú, puede leerla después). Para cambiarla,
+--  ejecuta lo mismo con otro texto. Después borra esa consulta del historial del editor.
 -- ---------------------------------------------------------------------
