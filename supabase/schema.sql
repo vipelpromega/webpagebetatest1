@@ -48,6 +48,9 @@ create table if not exists public.usuarios (
   creado  timestamptz not null default now()
 );
 
+-- Foto de perfil (opcional): imagen pequeña ya reducida por la página, guardada como texto
+alter table public.usuarios add column if not exists avatar text;
+
 create table if not exists public.codigos (
   hash              text primary key,           -- HMAC-SHA256 de la clave (para buscarla)
   cifrada           bytea not null,             -- la clave cifrada con AES-256 (la ve el panel con el ojo)
@@ -143,6 +146,14 @@ $$;
 create or replace function privado.evento(p_accion text, p_detalle jsonb)
 returns void language sql security definer set search_path = '' as $$
   insert into public.auditoria (accion, detalle) values (p_accion, p_detalle)
+$$;
+
+-- ¿Es una imagen permitida? Solo PNG/JPEG/WebP en base64 y de tamaño pequeño (nunca SVG).
+create or replace function privado.avatar_valido(p text)
+returns boolean language sql immutable set search_path = '' as $$
+  select p is null
+      or (char_length(p) <= 40000
+          and p ~ '^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$')
 $$;
 
 -- IP del visitante (la pone el servidor de Supabase en las cabeceras)
@@ -316,7 +327,8 @@ begin
 end $$;
 
 -- 2) Crea la cuenta gastando el código (un solo uso) e inicia sesión
-create or replace function public.registrar(p_codigo text, p_nombre text, p_usuario text, p_clave text)
+drop function if exists public.registrar(text, text, text, text);
+create or replace function public.registrar(p_codigo text, p_nombre text, p_usuario text, p_clave text, p_avatar text default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_clave   text := 'cod:' || privado.ip();
@@ -331,6 +343,10 @@ begin
   v_seg := privado.segundos_bloqueado(v_clave);
   if v_seg > 0 then
     return jsonb_build_object('ok', false, 'error', 'espera', 'segundos', v_seg);
+  end if;
+
+  if not privado.avatar_valido(nullif(p_avatar, '')) then
+    return jsonb_build_object('ok', false, 'error', 'avatar_formato');
   end if;
 
   -- Primero el código: así quien no tiene uno no puede averiguar qué usuarios existen
@@ -363,9 +379,10 @@ begin
   end if;
 
   begin
-    insert into public.usuarios (usuario, nombre, rol, clave)
+    insert into public.usuarios (usuario, nombre, rol, clave, avatar)
     values (v_usuario, v_nombre, v_rol,
-            extensions.crypt(p_clave, extensions.gen_salt('bf', 10)))
+            extensions.crypt(p_clave, extensions.gen_salt('bf', 10)),
+            nullif(p_avatar, ''))
     returning id into v_id;
   exception when unique_violation then
     update public.codigos set usado_en = null where hash = v_hash;
@@ -380,7 +397,7 @@ begin
     'ok', true,
     'token', v_sesion ->> 'token',
     'expira', v_sesion ->> 'expira',
-    'perfil', jsonb_build_object('usuario', v_usuario, 'nombre', v_nombre, 'rol', v_rol));
+    'perfil', jsonb_build_object('usuario', v_usuario, 'nombre', v_nombre, 'rol', v_rol, 'avatar', nullif(p_avatar, '')));
 end $$;
 
 -- 3) Iniciar sesión
@@ -425,7 +442,7 @@ begin
     'ok', true,
     'token', v_sesion ->> 'token',
     'expira', v_sesion ->> 'expira',
-    'perfil', jsonb_build_object('usuario', v_user.usuario, 'nombre', v_user.nombre, 'rol', v_user.rol));
+    'perfil', jsonb_build_object('usuario', v_user.usuario, 'nombre', v_user.nombre, 'rol', v_user.rol, 'avatar', v_user.avatar));
 end $$;
 
 -- 4) Datos de la sesión actual
@@ -438,7 +455,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'sesion');
   end if;
   return jsonb_build_object('ok', true,
-    'perfil', jsonb_build_object('usuario', v.usuario, 'nombre', v.nombre, 'rol', v.rol));
+    'perfil', jsonb_build_object('usuario', v.usuario, 'nombre', v.nombre, 'rol', v.rol, 'avatar', v.avatar));
 end $$;
 
 -- 5) Cambiar el nombre de visualización
@@ -457,6 +474,24 @@ begin
   end if;
   update public.usuarios set nombre = v_nombre where id = v.id;
   return jsonb_build_object('ok', true, 'nombre', v_nombre);
+end $$;
+
+-- 5b) Cambiar o quitar la foto de perfil (null o vacío = volver a la letra)
+create or replace function public.cambiar_avatar(p_token text, p_avatar text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v public.usuarios;
+  a text := nullif(p_avatar, '');
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  if not privado.avatar_valido(a) then
+    return jsonb_build_object('ok', false, 'error', 'avatar_formato');
+  end if;
+  update public.usuarios set avatar = a where id = v.id;
+  return jsonb_build_object('ok', true, 'avatar', a);
 end $$;
 
 -- 6) Cerrar sesión
@@ -748,14 +783,16 @@ end $$;
 -- ---------------------------------------------------------------------
 -- Web pública: solo estas funciones (clave anon)
 revoke all on function public.verificar_codigo(text)               from public, anon, authenticated;
-revoke all on function public.registrar(text, text, text, text)    from public, anon, authenticated;
+revoke all on function public.registrar(text, text, text, text, text) from public, anon, authenticated;
+revoke all on function public.cambiar_avatar(text, text)           from public, anon, authenticated;
 revoke all on function public.entrar(text, text)                   from public, anon, authenticated;
 revoke all on function public.yo(text)                             from public, anon, authenticated;
 revoke all on function public.cambiar_nombre(text, text)           from public, anon, authenticated;
 revoke all on function public.salir(text)                          from public, anon, authenticated;
 
 grant execute on function public.verificar_codigo(text)            to anon, authenticated;
-grant execute on function public.registrar(text, text, text, text) to anon, authenticated;
+grant execute on function public.registrar(text, text, text, text, text) to anon, authenticated;
+grant execute on function public.cambiar_avatar(text, text)        to anon, authenticated;
 grant execute on function public.entrar(text, text)                to anon, authenticated;
 grant execute on function public.yo(text)                          to anon, authenticated;
 grant execute on function public.cambiar_nombre(text, text)        to anon, authenticated;

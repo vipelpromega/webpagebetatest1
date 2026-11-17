@@ -50,6 +50,27 @@
       if (r.ok) inputNombre.value = r.nombre;
     });
 
+    const fotoMsg = document.getElementById("foto-msg");
+    const fotoArchivo = document.getElementById("foto-archivo");
+    const fotoCambiar = document.getElementById("foto-cambiar");
+    const fotoQuitar = document.getElementById("foto-quitar");
+    const aplicarFoto = async (archivo) => {
+      fotoCambiar.disabled = fotoQuitar.disabled = true;
+      fotoMsg.classList.remove("ok");
+      fotoMsg.textContent = "";
+      const r = await Auth.cambiarAvatar(archivo);
+      fotoCambiar.disabled = fotoQuitar.disabled = false;
+      fotoMsg.classList.toggle("ok", r.ok);
+      fotoMsg.textContent = r.ok ? (archivo ? "Foto actualizada." : "Se usará la letra de tu usuario.") : r.error;
+    };
+    fotoCambiar.addEventListener("click", () => fotoArchivo.click());
+    fotoArchivo.addEventListener("change", () => {
+      const f = fotoArchivo.files && fotoArchivo.files[0];
+      fotoArchivo.value = "";
+      if (f) aplicarFoto(f);
+    });
+    fotoQuitar.addEventListener("click", () => aplicarFoto(null));
+
     document.getElementById("cerrar-sesion").addEventListener("click", () => {
       Auth.cerrarSesion();
     });

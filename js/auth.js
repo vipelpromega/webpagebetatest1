@@ -54,7 +54,7 @@
   function usuarioActual() {
     var s = leerSesion();
     if (!s) return null;
-    return { usuario: s.perfil.usuario, nombre: s.perfil.nombre, rol: s.perfil.rol };
+    return { usuario: s.perfil.usuario, nombre: s.perfil.nombre, rol: s.perfil.rol, avatar: s.perfil.avatar || null };
   }
 
   function estado() {
@@ -98,6 +98,8 @@
   function mensaje(r) {
     switch (r && r.error) {
       case "codigo_invalido": return "Código no válido.";
+      case "avatar_formato": return "La imagen no es válida o es demasiado grande.";
+      case "imagen_tipo": return "Elige una imagen PNG, JPG o WebP.";
       case "espera": return "Demasiados intentos. Espera " + (r.segundos || 30) + " s.";
       case "nombre_formato": return "El nombre de visualización debe tener entre 1 y 30 caracteres.";
       case "usuario_formato": return "El nombre de usuario debe tener de 3 a 20 caracteres: letras, números, punto, guion o guion bajo.";
@@ -134,8 +136,69 @@
     return ok;
   }
 
+  // Foto de perfil: la imagen si hay; si no, la primera letra del nombre de usuario.
+  function rellenarAvatar(nodo, perfil, grande) {
+    while (nodo.firstChild) nodo.removeChild(nodo.firstChild);
+    nodo.className = "avatar" + (grande ? " grande" : "");
+    var inicial = String((perfil && perfil.usuario) || "?").charAt(0).toUpperCase() || "?";
+    if (perfil && perfil.avatar) {
+      var img = document.createElement("img");
+      img.alt = "";
+      img.src = perfil.avatar;
+      nodo.appendChild(img);
+    } else {
+      nodo.appendChild(document.createTextNode(inicial));
+    }
+  }
+
+  // Reduce la imagen elegida a 160×160 (recortada al centro) para que pese poco.
+  function procesarImagen(file) {
+    return new Promise(function (res, rej) {
+      if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 8 * 1024 * 1024) return rej("imagen_tipo");
+      var fr = new FileReader();
+      fr.onerror = function () { rej("imagen_tipo"); };
+      fr.onload = function () {
+        var img = new Image();
+        img.onerror = function () { rej("imagen_tipo"); };
+        img.onload = function () {
+          var T = 160, c = document.createElement("canvas");
+          c.width = c.height = T;
+          var lado = Math.min(img.width, img.height);
+          c.getContext("2d").drawImage(img, (img.width - lado) / 2, (img.height - lado) / 2, lado, lado, 0, 0, T, T);
+          var d = c.toDataURL("image/webp", 0.85);
+          if (d.indexOf("data:image/webp") !== 0) d = c.toDataURL("image/jpeg", 0.85);
+          if (d.length > 40000) d = c.toDataURL("image/jpeg", 0.6);
+          if (d.length > 40000) rej("imagen_tipo"); else res(d);
+        };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+
+  function cambiarAvatar(file) {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: mensaje({ error: "sesion" }) });
+    var preparar = file ? procesarImagen(file) : Promise.resolve(null);
+    return preparar.then(function (datos) {
+      return rpc("cambiar_avatar", { p_token: s.token, p_avatar: datos }).then(function (r) {
+        if (r.ok) {
+          s.perfil.avatar = r.avatar || null;
+          guardar(K_SESION, s);
+          actualizarNombres();
+          return { ok: true };
+        }
+        if (r.error === "sesion") { quitar(K_SESION); location.reload(); }
+        return { ok: false, error: mensaje(r) };
+      });
+    }, function (codigo) { return { ok: false, error: mensaje({ error: codigo }) }; });
+  }
+
   function actualizarNombres() {
     var u = usuarioActual();
+    document.querySelectorAll("[data-user-avatar]").forEach(function (n) {
+      if (u) { rellenarAvatar(n, u, true); n.hidden = false; } else n.hidden = true;
+    });
     document.querySelectorAll("[data-user-name]").forEach(function (n) {
       n.textContent = u ? u.nombre : "invitado";
     });
@@ -182,6 +245,7 @@
     estado: estado,
     usuario: usuarioActual,
     cambiarNombre: cambiarNombre,
+    cambiarAvatar: cambiarAvatar,
     cerrarSesion: cerrarSesion,
     salirDeInvitado: salirDeInvitado
   };
@@ -352,6 +416,36 @@
       autocomplete: "new-password", ayuda: "Mínimo 8 caracteres."
     });
     var etiquetaClave = el("p", { class: "f-hint gate-etiqueta" });
+
+    // Foto de perfil (opcional)
+    var avatarElegido = null;
+    var avatarVista = el("span", { class: "avatar grande" });
+    var avatarArchivo = el("input", { type: "file", accept: "image/png,image/jpeg,image/webp", class: "sr-only", tabindex: "-1", "aria-hidden": "true" });
+    var avatarError = el("p", { class: "f-error", role: "alert" });
+    var avatarQuitar = el("button", { type: "button", class: "gate-link" }, "Quitar");
+    avatarQuitar.hidden = true;
+    function pintarAvatar() {
+      rellenarAvatar(avatarVista, { usuario: fUsuario.input.value.trim() || "?", avatar: avatarElegido }, true);
+      avatarQuitar.hidden = !avatarElegido;
+    }
+    var avatarElegir = el("button", { type: "button", class: "btn secondary" }, "Elegir imagen");
+    avatarElegir.addEventListener("click", function () { avatarArchivo.click(); });
+    avatarQuitar.addEventListener("click", function () { avatarElegido = null; avatarArchivo.value = ""; pintarAvatar(); });
+    avatarArchivo.addEventListener("change", function () {
+      avatarError.textContent = "";
+      var f = avatarArchivo.files && avatarArchivo.files[0];
+      if (!f) return;
+      procesarImagen(f).then(function (d) { avatarElegido = d; pintarAvatar(); },
+        function (c) { avatarError.textContent = mensaje({ error: c }); });
+    });
+    fUsuario.input.addEventListener("input", pintarAvatar);
+    pintarAvatar();
+    var grupoAvatar = el("div", { class: "f-group avatar-grupo" },
+      el("div", { class: "f-label" }, "Foto de perfil (opcional):"),
+      el("div", { class: "avatar-fila" }, avatarVista, el("div", { class: "avatar-botones" }, avatarElegir, avatarQuitar)),
+      el("p", { class: "f-hint" }, "Si no eliges una, se usa la primera letra de tu nombre de usuario. Puedes cambiarla después."),
+      avatarArchivo, avatarError);
+
     var vRegistro = nuevaVista("registro", function (form, error, boton) {
       boton.textContent = "Crear cuenta";
       form.appendChild(el("h1", { class: "gate-prompt" }, "Crea tu cuenta"));
@@ -359,6 +453,7 @@
       form.appendChild(fNombre.grupo);
       form.appendChild(fUsuario.grupo);
       form.appendChild(fClave.grupo);
+      form.appendChild(grupoAvatar);
       form.appendChild(error);
       form.appendChild(boton);
       form.appendChild(enlace("← Volver", function () { mostrar("codigo"); }));
@@ -371,7 +466,8 @@
       if (falla) { vRegistro.error.textContent = mensaje({ error: falla }); return; }
       enviar(vRegistro, function () {
         return rpc("registrar", {
-          p_codigo: codigoValidado, p_nombre: datos.nombre, p_usuario: datos.usuario, p_clave: datos.clave
+          p_codigo: codigoValidado, p_nombre: datos.nombre, p_usuario: datos.usuario, p_clave: datos.clave,
+          p_avatar: avatarElegido
         }).then(function (r) {
           if (r.ok) {
             if (iniciarSesionLocal(r)) { location.reload(); return; }

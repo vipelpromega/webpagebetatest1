@@ -7,6 +7,8 @@ drop schema if exists privado cascade;
 
 drop function if exists public.verificar_codigo(text);
 drop function if exists public.registrar(text, text, text, text);
+drop function if exists public.registrar(text, text, text, text, text);
+drop function if exists public.cambiar_avatar(text, text);
 drop function if exists public.entrar(text, text);
 drop function if exists public.yo(text);
 drop function if exists public.cambiar_nombre(text, text);
