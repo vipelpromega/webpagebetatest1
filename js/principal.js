@@ -1,0 +1,119 @@
+// Página Principal: reloj y clima (Open-Meteo, sin clave de API).
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var loc = function () { return window.I18n ? window.I18n.locale() : "es-ES"; };
+  var idioma = function () { return window.I18n ? window.I18n.get() : "es"; };
+
+  /* ---------- Reloj ---------- */
+  var reloj = $("reloj"), fecha = $("fecha");
+  var ultimaFecha = "";
+  function tic() {
+    var d = new Date();
+    reloj.textContent = d.toLocaleTimeString(loc(), { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    var f = d.toLocaleDateString(loc(), { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    if (f !== ultimaFecha) { ultimaFecha = f; fecha.textContent = f.charAt(0).toUpperCase() + f.slice(1); }
+    setTimeout(tic, 1000 - (Date.now() % 1000) + 5);
+  }
+  tic();
+
+  /* ---------- Clima ---------- */
+  var KEY = "clima";
+  var msg = $("clima-msg"), caja = $("clima"), form = $("clima-form"), ciudad = $("clima-ciudad");
+  var BASE = "https://api.open-meteo.com/v1/forecast";
+  var GEO = "https://geocoding-api.open-meteo.com/v1/search";
+
+  var SVG = {
+    sol: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="8"/><path d="M24 6v5M24 37v5M6 24h5M37 24h5M11.3 11.3l3.5 3.5M33.2 33.2l3.5 3.5M11.3 36.7l3.5-3.5M33.2 14.8l3.5-3.5"/></svg>',
+    luna: '<svg viewBox="0 0 48 48"><path d="M36 28A14 14 0 0 1 20 12a14 14 0 1 0 16 16z"/></svg>',
+    parcial: '<svg viewBox="0 0 48 48"><circle cx="17" cy="16" r="6"/><path d="M17 4v3M5 16h3M8.5 7.5l2 2M25.5 7.5l-2 2"/><path d="M16 40h18a7 7 0 0 0 .7-14A10 10 0 0 0 15 28a6 6 0 0 0 1 12z"/></svg>',
+    nube: '<svg viewBox="0 0 48 48"><path d="M13 38h22a8 8 0 0 0 .8-16A12 12 0 0 0 12.6 24 7 7 0 0 0 13 38z"/></svg>',
+    lluvia: '<svg viewBox="0 0 48 48"><path d="M13 30h22a8 8 0 0 0 .8-16A12 12 0 0 0 12.6 16 7 7 0 0 0 13 30z"/><path d="M16 36l-2 6M24 36l-2 6M32 36l-2 6"/></svg>',
+    nieve: '<svg viewBox="0 0 48 48"><path d="M13 30h22a8 8 0 0 0 .8-16A12 12 0 0 0 12.6 16 7 7 0 0 0 13 30z"/><path d="M16 37v.1M24 40v.1M32 37v.1M20 43v.1M28 43v.1"/></svg>',
+    tormenta: '<svg viewBox="0 0 48 48"><path d="M13 28h22a8 8 0 0 0 .8-16A12 12 0 0 0 12.6 14 7 7 0 0 0 13 28z"/><path d="M25 28l-5 8h6l-4 8"/></svg>',
+    niebla: '<svg viewBox="0 0 48 48"><path d="M8 18h32M12 25h28M8 32h32M14 39h20"/></svg>'
+  };
+
+  function condicion(c, dia) {
+    if (c === 0) return [dia ? "sol" : "luna", "Despejado"];
+    if (c === 1) return [dia ? "sol" : "luna", "Mayormente despejado"];
+    if (c === 2) return ["parcial", "Parcialmente nublado"];
+    if (c === 3) return ["nube", "Nublado"];
+    if (c === 45 || c === 48) return ["niebla", "Niebla"];
+    if (c === 56 || c === 57 || c === 66 || c === 67) return ["lluvia", "Lluvia helada"];
+    if (c >= 51 && c <= 55) return ["lluvia", "Llovizna"];
+    if (c === 65) return ["lluvia", "Lluvia fuerte"];
+    if (c === 61 || c === 63) return ["lluvia", "Lluvia"];
+    if (c >= 80 && c <= 82) return ["lluvia", "Chubascos"];
+    if (c === 96 || c === 99) return ["tormenta", "Tormenta con granizo"];
+    if (c === 95) return ["tormenta", "Tormenta"];
+    if (c >= 71 && c <= 77 || c === 85 || c === 86) return ["nieve", "Nieve"];
+    return ["nube", "Nublado"];
+  }
+
+  function guardado() {
+    try {
+      var g = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (g && isFinite(g.lat) && isFinite(g.lon) && Math.abs(g.lat) <= 90 && Math.abs(g.lon) <= 180) return g;
+    } catch (e) { /* nada */ }
+    return null;
+  }
+  function guardar(g) { try { localStorage.setItem(KEY, JSON.stringify(g)); } catch (e) { /* nada */ } }
+
+  function aviso(texto) { msg.textContent = texto || ""; }
+
+  var pedido = 0;
+  function cargar(g) {
+    var mio = ++pedido;
+    aviso("Cargando el clima…");
+    var url = BASE + "?latitude=" + encodeURIComponent(g.lat) + "&longitude=" + encodeURIComponent(g.lon) +
+      "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day&timezone=auto";
+    return fetch(url).then(function (r) { if (!r.ok) throw new Error("http"); return r.json(); }).then(function (d) {
+      if (mio !== pedido) return;
+      var c = d && d.current;
+      if (!c || typeof c.temperature_2m !== "number") throw new Error("datos");
+      var k = condicion(Number(c.weather_code), c.is_day === 1);
+      $("clima-icono").innerHTML = SVG[k[0]];
+      $("clima-temp").textContent = Math.round(c.temperature_2m) + "°C";
+      $("clima-cond").textContent = k[1];
+      $("clima-lugar").textContent = g.nombre;
+      $("clima-sens").textContent = Math.round(c.apparent_temperature) + "°C";
+      $("clima-hum").textContent = Math.round(c.relative_humidity_2m) + " %";
+      $("clima-viento").textContent = Math.round(c.wind_speed_10m) + " km/h";
+      caja.hidden = false;
+      aviso("");
+    }).catch(function () {
+      if (mio !== pedido) return;
+      aviso("No se pudo obtener el clima.");
+    });
+  }
+
+  function elegir(g) { guardar(g); return cargar(g); }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var q = ciudad.value.trim();
+    if (!q) { aviso("Escribe una ciudad."); return; }
+    aviso("Cargando…");
+    fetch(GEO + "?name=" + encodeURIComponent(q) + "&count=1&language=" + idioma() + "&format=json")
+      .then(function (r) { if (!r.ok) throw new Error("http"); return r.json(); })
+      .then(function (d) {
+        var p = d && d.results && d.results[0];
+        if (!p) { aviso("No se encontró esa ciudad."); return; }
+        var nombre = p.name + (p.admin1 && p.admin1 !== p.name ? ", " + p.admin1 : "") + (p.country ? ", " + p.country : "");
+        return elegir({ nombre: nombre, lat: p.latitude, lon: p.longitude });
+      })
+      .catch(function () { aviso("No se pudo obtener el clima."); });
+  });
+
+  $("clima-gps").addEventListener("click", function () {
+    if (!navigator.geolocation) { aviso("No se pudo obtener tu ubicación."); return; }
+    aviso("Cargando…");
+    navigator.geolocation.getCurrentPosition(function (p) {
+      elegir({ nombre: "Tu ubicación", lat: Math.round(p.coords.latitude * 1000) / 1000, lon: Math.round(p.coords.longitude * 1000) / 1000 });
+    }, function () { aviso("No se pudo obtener tu ubicación."); }, { timeout: 10000, maximumAge: 600000 });
+  });
+
+  var g0 = guardado();
+  if (g0) cargar(g0); else aviso("Elige una ubicación para ver el clima.");
+  setInterval(function () { var g = guardado(); if (g && !document.hidden) cargar(g); }, 10 * 60 * 1000);
+})();

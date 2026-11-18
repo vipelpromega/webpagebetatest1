@@ -352,7 +352,35 @@
     location.reload();
   }
 
+  // Sesiones activas de la cuenta
+  function sesionesActivas() {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: mensaje({ error: "sesion" }) });
+    return rpc("mis_sesiones", { p_token: s.token }).then(function (r) {
+      if (r.ok) return { ok: true, sesiones: r.sesiones || [] };
+      if (r.error === "sesion") { quitar(K_SESION); location.reload(); }
+      return { ok: false, error: mensaje(r) };
+    });
+  }
+  function cerrarSesionPorId(id) {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: mensaje({ error: "sesion" }) });
+    return rpc("cerrar_sesion", { p_token: s.token, p_id: id }).then(function (r) {
+      return r.ok ? { ok: true } : { ok: false, error: mensaje(r) };
+    });
+  }
+  function cerrarOtrasSesiones() {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: mensaje({ error: "sesion" }) });
+    return rpc("cerrar_otras_sesiones", { p_token: s.token }).then(function (r) {
+      return r.ok ? { ok: true, cerradas: r.cerradas || 0 } : { ok: false, error: mensaje(r) };
+    });
+  }
+
   window.Auth = {
+    sesionesActivas: sesionesActivas,
+    cerrarSesionPorId: cerrarSesionPorId,
+    cerrarOtrasSesiones: cerrarOtrasSesiones,
     estado: estado,
     usuario: usuarioActual,
     cambiarNombre: cambiarNombre,

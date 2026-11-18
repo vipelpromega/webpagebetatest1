@@ -20,6 +20,75 @@
 
   refresh();
 
+  // ---------- Idioma ----------
+  const idiomaBtns = document.querySelectorAll("[data-idioma]");
+  idiomaBtns.forEach((btn) => {
+    const act = window.I18n && btn.dataset.idioma === window.I18n.get();
+    btn.classList.toggle("selected", !!act);
+    btn.setAttribute("aria-pressed", String(!!act));
+    btn.addEventListener("click", () => { if (window.I18n && btn.dataset.idioma !== window.I18n.get()) window.I18n.set(btn.dataset.idioma); });
+  });
+
+  // ---------- Color de acento ----------
+  const RECOM = [
+    { n: "Azul", t: "solido", c1: "#0078d4" }, { n: "Violeta", t: "solido", c1: "#8764b8" },
+    { n: "Rosa", t: "solido", c1: "#e3008c" }, { n: "Rojo", t: "solido", c1: "#e81123" },
+    { n: "Naranja", t: "solido", c1: "#f7630c" }, { n: "Dorado", t: "solido", c1: "#ffb900" },
+    { n: "Verde", t: "solido", c1: "#10893e" }, { n: "Turquesa", t: "solido", c1: "#00b7c3" },
+    { n: "Océano", t: "degradado", c1: "#0078d4", c2: "#00b7c3", ang: 135 },
+    { n: "Atardecer", t: "degradado", c1: "#f7630c", c2: "#e3008c", ang: 135 },
+    { n: "Neón", t: "degradado", c1: "#8764b8", c2: "#00b7c3", ang: 135 },
+    { n: "Fuego", t: "degradado", c1: "#ffb900", c2: "#e81123", ang: 90 },
+    { n: "Bosque", t: "degradado", c1: "#10893e", c2: "#00b7c3", ang: 180 },
+    { n: "Caramelo", t: "degradado", c1: "#e3008c", c2: "#8764b8", ang: 45 }
+  ];
+  const fondo = (a) => a.t === "degradado" || a.tipo === "degradado"
+    ? `linear-gradient(${a.ang || 135}deg, ${a.c1}, ${a.c2})` : a.c1;
+  const recom = document.getElementById("acento-recom");
+  const c1 = document.getElementById("acento-c1");
+  const c2 = document.getElementById("acento-c2");
+  const c2caja = document.getElementById("acento-c2-caja");
+  const vista = document.getElementById("acento-vista");
+  const tipoBtns = document.querySelectorAll("[data-acento-tipo]");
+  const angBtns = document.querySelectorAll("[data-acento-ang]");
+  const angCaja = document.getElementById("acento-ang");
+  let actual = window.Theme.getAccent() || { tipo: "solido", c1: "#0078d4", c2: "#00b7c3", ang: 135 };
+  const muestras = RECOM.map((r) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "muestra";
+    b.setAttribute("aria-label", r.n); b.setAttribute("data-tooltip", r.n); b.setAttribute("aria-pressed", "false");
+    b.style.background = fondo(r);
+    b.addEventListener("click", () => aplicar({ tipo: r.t, c1: r.c1, c2: r.c2 || r.c1, ang: r.ang || 135 }));
+    recom.appendChild(b);
+    return b;
+  });
+  function pintarAcento() {
+    const grad = actual.tipo === "degradado";
+    tipoBtns.forEach((b) => { const a = b.dataset.acentoTipo === actual.tipo; b.classList.toggle("selected", a); b.setAttribute("aria-pressed", String(a)); });
+    angBtns.forEach((b) => { const a = Number(b.dataset.acentoAng) === Number(actual.ang); b.classList.toggle("selected", a); b.setAttribute("aria-pressed", String(a)); });
+    c2caja.hidden = !grad; angCaja.hidden = !grad;
+    c1.value = actual.c1; c2.value = actual.c2 || actual.c1;
+    vista.style.background = fondo(actual);
+    const guardada = window.Theme.getAccent();
+    muestras.forEach((m, i) => {
+      const r = RECOM[i];
+      const igual = !!guardada && guardada.tipo === r.t && guardada.c1.toLowerCase() === r.c1 &&
+        (r.t === "solido" || (guardada.c2.toLowerCase() === r.c2 && Number(guardada.ang) === r.ang));
+      m.classList.toggle("selected", igual); m.setAttribute("aria-pressed", String(igual));
+    });
+  }
+  function aplicar(a) { actual = a; window.Theme.setAccent(a); pintarAcento(); }
+  tipoBtns.forEach((b) => b.addEventListener("click", () => aplicar(Object.assign({}, actual, { tipo: b.dataset.acentoTipo, c2: actual.c2 || actual.c1 }))));
+  angBtns.forEach((b) => b.addEventListener("click", () => aplicar(Object.assign({}, actual, { ang: Number(b.dataset.acentoAng) }))));
+  c1.addEventListener("input", () => aplicar(Object.assign({}, actual, { c1: c1.value })));
+  c2.addEventListener("input", () => aplicar(Object.assign({}, actual, { c2: c2.value })));
+  document.getElementById("acento-reset").addEventListener("click", () => {
+    window.Theme.setAccent(null);
+    actual = { tipo: "solido", c1: "#0078d4", c2: "#00b7c3", ang: 135 };
+    pintarAcento();
+  });
+  pintarAcento();
+
   // ---------- Subsecciones (Apariencia / Cuenta) ----------
   const tabs = Array.from(document.querySelectorAll("[data-tab]"));
   function mostrarTab(nombre, enfocar) {
@@ -153,6 +222,82 @@
       claveMsg.classList.add("ok");
       claveMsg.textContent = "Contraseña actualizada. Se cerraron tus otras sesiones.";
     });
+
+
+    // Sesiones activas
+    const sesLista = document.getElementById("sesiones-lista");
+    const sesMsg = document.getElementById("sesiones-msg");
+    const sesOtras = document.getElementById("sesiones-otras");
+    const sesAct = document.getElementById("sesiones-actualizar");
+    const ingles = window.I18n && window.I18n.get() === "en";
+    const loc = window.I18n ? window.I18n.locale() : "es-ES";
+    const ICON_PC = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>';
+    const ICON_TEL = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>';
+    function dispositivo(ua) {
+      ua = String(ua || "");
+      const nav = /Edg\//.test(ua) ? "Edge" : /OPR\/|Opera/.test(ua) ? "Opera" : /Firefox\//.test(ua) ? "Firefox"
+        : /Chrome\/|CriOS/.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : null;
+      const so = /Windows/.test(ua) ? "Windows" : /Android/.test(ua) ? "Android" : /iPhone|iPad|iPod/.test(ua) ? "iOS"
+        : /Mac OS X|Macintosh/.test(ua) ? "macOS" : /CrOS/.test(ua) ? "ChromeOS" : /Linux/.test(ua) ? "Linux" : null;
+      const movil = /Android|iPhone|iPad|iPod|Mobile/.test(ua);
+      const a = nav || (window.I18n ? window.I18n.t("Navegador desconocido") : "Navegador desconocido");
+      const b = so || (window.I18n ? window.I18n.t("Sistema desconocido") : "Sistema desconocido");
+      return { texto: a + (ingles ? " on " : " en ") + b, movil };
+    }
+    function hace(f) {
+      const min = Math.max(0, Math.round((Date.now() - new Date(f).getTime()) / 60000));
+      if (min < 1) return "ahora";
+      if (min < 60) return "hace " + min + " min";
+      if (min < 1440) return "hace " + Math.round(min / 60) + " h";
+      return "hace " + Math.round(min / 1440) + " d";
+    }
+    function sesMensaje(t, ok) { sesMsg.classList.toggle("ok", !!ok); sesMsg.textContent = t || ""; }
+    async function cargarSesiones(conservarMsg) {
+      if (!conservarMsg) sesMensaje("");
+      sesAct.disabled = true;
+      const r = await Auth.sesionesActivas();
+      sesAct.disabled = false;
+      if (!r.ok) { sesMensaje("No se pudieron cargar las sesiones."); return; }
+      sesLista.replaceChildren();
+      sesOtras.hidden = r.sesiones.length < 2;
+      r.sesiones.forEach((x) => {
+        const d = dispositivo(x.dispositivo);
+        const li = document.createElement("li");
+        li.className = "sesion" + (x.actual ? " actual" : "");
+        const ic = document.createElement("span"); ic.className = "sesion-icono"; ic.innerHTML = d.movil ? ICON_TEL : ICON_PC;
+        const tx = document.createElement("div"); tx.className = "sesion-texto";
+        const t1 = document.createElement("div"); t1.className = "sesion-titulo";
+        t1.textContent = d.texto;
+        if (x.actual) { const ins = document.createElement("span"); ins.className = "insignia"; ins.textContent = "Este dispositivo"; t1.appendChild(ins); }
+        const t2 = document.createElement("div"); t2.className = "sesion-detalle";
+        t2.textContent = (x.ip && x.ip !== "desconocida" ? x.ip + " · " : "") + hace(x.ultima);
+        tx.append(t1, t2);
+        li.append(ic, tx);
+        if (!x.actual) {
+          const bt = document.createElement("button");
+          bt.type = "button"; bt.className = "btn secondary"; bt.textContent = "Cerrar";
+          bt.addEventListener("click", async () => {
+            bt.disabled = true;
+            const c = await Auth.cerrarSesionPorId(x.id);
+            if (!c.ok) { bt.disabled = false; sesMensaje(c.error); return; }
+            sesMensaje("Sesión cerrada.", true);
+            cargarSesiones(true);
+          });
+          li.appendChild(bt);
+        }
+        sesLista.appendChild(li);
+      });
+    }
+    sesAct.addEventListener("click", () => cargarSesiones());
+    sesOtras.addEventListener("click", async () => {
+      sesOtras.disabled = true;
+      const c = await Auth.cerrarOtrasSesiones();
+      sesOtras.disabled = false;
+      if (!c.ok) { sesMensaje(c.error); return; }
+      sesMensaje("Se cerraron las demás sesiones.", true);
+      cargarSesiones(true);
+    });
+    cargarSesiones();
 
     document.getElementById("cerrar-sesion").addEventListener("click", () => {
       Auth.cerrarSesion();

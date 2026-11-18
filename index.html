@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://avdssotwcftjuggsvubd.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>Casa</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://avdssotwcftjuggsvubd.supabase.co https://api.open-meteo.com https://geocoding-api.open-meteo.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>Principal</title>
   <script src="js/theme.js"></script>
+  <script src="js/i18n.js"></script>
   <script src="js/sidebar.js"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/auth.js"></script>
@@ -20,9 +21,9 @@
       <span class="label">Expandir</span>
     </button>
     <div class="side-divider" role="separator"></div>
-    <a class="side-btn" href="index.html" aria-label="Casa" data-tooltip="Casa" aria-current="page">
+    <a class="side-btn" href="index.html" aria-label="Principal" data-tooltip="Principal" aria-current="page">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
-      <span class="label">Casa</span>
+      <span class="label">Principal</span>
     </a>
     <a class="side-btn" data-acceso="miembro" href="temporizador.html" aria-label="Temporizador" data-tooltip="Temporizador">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
@@ -36,7 +37,7 @@
 
   <div class="page">
     <header>
-      <h1>Casa</h1>
+      <h1>Principal</h1>
       <p>Usa la barra de la izquierda para moverte entre páginas</p>
     </header>
 
@@ -50,8 +51,43 @@
           </div>
         </div>
       </section>
+
+      <div class="principal-grid">
+        <section class="card reloj-card" aria-labelledby="reloj-t">
+          <h2 class="card-t" id="reloj-t">Hora</h2>
+          <div class="reloj" id="reloj" role="timer" aria-live="off">--:--:--</div>
+          <div class="fecha" id="fecha"></div>
+          <p class="nota">Hora y fecha de tu dispositivo</p>
+        </section>
+
+        <section class="card clima-card" aria-labelledby="clima-t">
+          <h2 class="card-t" id="clima-t">Clima</h2>
+          <form class="clima-buscar" id="clima-form" novalidate autocomplete="off">
+            <div class="f-box"><input class="f-input" id="clima-ciudad" type="text" maxlength="60" placeholder="Busca una ciudad" aria-label="Ciudad"></div>
+            <button class="btn" type="submit">Buscar</button>
+            <button class="btn secondary" type="button" id="clima-gps">Usar mi ubicación</button>
+          </form>
+          <p class="f-error" id="clima-msg" role="status"></p>
+          <div class="clima" id="clima" hidden>
+            <div class="clima-icono" id="clima-icono" aria-hidden="true"></div>
+            <div class="clima-datos">
+              <div class="clima-temp" id="clima-temp"></div>
+              <div class="clima-cond" id="clima-cond"></div>
+              <div class="clima-lugar" id="clima-lugar"></div>
+            </div>
+            <dl class="clima-extra">
+              <div><dt>Sensación</dt><dd id="clima-sens"></dd></div>
+              <div><dt>Humedad</dt><dd id="clima-hum"></dd></div>
+              <div><dt>Viento</dt><dd id="clima-viento"></dd></div>
+            </dl>
+          </div>
+          <p class="nota">Datos del clima: Open-Meteo</p>
+        </section>
+      </div>
     </main>
 
   </div>
+
+  <script src="js/principal.js"></script>
 </body>
 </html>

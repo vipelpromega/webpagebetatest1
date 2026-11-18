@@ -72,6 +72,13 @@ create table if not exists public.sesiones (
   expira     timestamptz not null
 );
 
+-- Datos del dispositivo de cada sesión (para la lista de "Sesiones activas")
+alter table public.sesiones add column if not exists id          uuid not null default gen_random_uuid();
+alter table public.sesiones add column if not exists dispositivo text;
+alter table public.sesiones add column if not exists ip          text;
+alter table public.sesiones add column if not exists ultima      timestamptz not null default now();
+create unique index if not exists sesiones_id_idx on public.sesiones (id);
+
 create table if not exists public.intentos (
   clave       text primary key,
   n           int not null default 0,
@@ -231,8 +238,10 @@ begin
   delete from public.sesiones where expira < now();
   v_token := encode(extensions.gen_random_bytes(32), 'hex');
   v_exp   := now() + interval '30 days';
-  insert into public.sesiones (token, usuario_id, expira)
-  values (privado.hash_texto(v_token), p_uid, v_exp);
+  insert into public.sesiones (token, usuario_id, expira, dispositivo, ip)
+  values (privado.hash_texto(v_token), p_uid, v_exp,
+          left(coalesce(nullif(current_setting('request.headers', true), '')::json ->> 'user-agent', ''), 200),
+          privado.ip());
   return jsonb_build_object('token', v_token, 'expira', v_exp);
 end $$;
 
@@ -247,6 +256,10 @@ begin
     from public.sesiones s
     join public.usuarios u on u.id = s.usuario_id
    where s.token = privado.hash_texto(p_token) and s.expira > now();
+  if v.id is not null then
+    update public.sesiones set ultima = now()
+     where token = privado.hash_texto(p_token) and ultima < now() - interval '1 minute';
+  end if;
   return v;
 end $$;
 
@@ -556,6 +569,51 @@ returns jsonb language plpgsql security definer set search_path = '' as $$
 begin
   delete from public.sesiones where token = privado.hash_texto(coalesce(p_token, ''));
   return jsonb_build_object('ok', true);
+end $$;
+
+-- 6b) Sesiones activas de la cuenta
+create or replace function public.mis_sesiones(p_token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios; v_h text := privado.hash_texto(coalesce(p_token, ''));
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  return jsonb_build_object('ok', true, 'sesiones', coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'id', s.id, 'dispositivo', s.dispositivo, 'ip', s.ip,
+             'creada', s.creada, 'ultima', s.ultima, 'actual', s.token = v_h)
+           order by (s.token = v_h) desc, s.ultima desc)
+      from public.sesiones s
+     where s.usuario_id = v.id and s.expira > now()), '[]'::jsonb));
+end $$;
+
+create or replace function public.cerrar_sesion(p_token text, p_id uuid)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios; n int;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  delete from public.sesiones
+   where id = p_id and usuario_id = v.id and token <> privado.hash_texto(p_token);
+  get diagnostics n = row_count;
+  return jsonb_build_object('ok', true, 'cerradas', n);
+end $$;
+
+create or replace function public.cerrar_otras_sesiones(p_token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios; n int;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  delete from public.sesiones where usuario_id = v.id and token <> privado.hash_texto(p_token);
+  get diagnostics n = row_count;
+  return jsonb_build_object('ok', true, 'cerradas', n);
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -913,6 +971,9 @@ revoke all on function public.entrar(text, text)                   from public, 
 revoke all on function public.yo(text)                             from public, anon, authenticated;
 revoke all on function public.cambiar_nombre(text, text)           from public, anon, authenticated;
 revoke all on function public.salir(text)                          from public, anon, authenticated;
+revoke all on function public.mis_sesiones(text)                   from public, anon, authenticated;
+revoke all on function public.cerrar_sesion(text, uuid)            from public, anon, authenticated;
+revoke all on function public.cerrar_otras_sesiones(text)          from public, anon, authenticated;
 
 grant execute on function public.verificar_codigo(text)            to anon, authenticated;
 grant execute on function public.registrar(text, text, text, text, text) to anon, authenticated;
@@ -921,6 +982,9 @@ grant execute on function public.entrar(text, text)                to anon, auth
 grant execute on function public.yo(text)                          to anon, authenticated;
 grant execute on function public.cambiar_nombre(text, text)        to anon, authenticated;
 grant execute on function public.salir(text)                       to anon, authenticated;
+grant execute on function public.mis_sesiones(text)                to anon, authenticated;
+grant execute on function public.cerrar_sesion(text, uuid)         to anon, authenticated;
+grant execute on function public.cerrar_otras_sesiones(text)       to anon, authenticated;
 
 -- Panel de administración: SOLO "authenticated" (y aun así exigen ser admin + 2 pasos)
 revoke all on function public.admin_yo()                           from public, anon, authenticated;

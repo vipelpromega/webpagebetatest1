@@ -48,14 +48,14 @@ html.gate-open body > *:not(.gate) { visibility: hidden; }
   border: 1px solid var(--accent-border);
   border-bottom-color: var(--accent-border-bottom);
   border-radius: var(--radius-sm);
-  background: var(--accent);
+  background: var(--accent-bg);
   color: var(--on-accent);
   font: inherit;
   cursor: pointer;
   transition: background .083s linear;
 }
-.gate-btn:hover { background: var(--accent-2); }
-.gate-btn:active { background: var(--accent-3); }
+.gate-btn:hover { background: var(--accent-bg-2); }
+.gate-btn:active { background: var(--accent-bg-3); }
 .gate-btn:disabled { opacity: .6; cursor: progress; }
 
 /* Botón de texto (hipervínculo de Windows 11) */
@@ -198,7 +198,7 @@ html.guest body[data-acceso="miembro"] main { display: none; }
 .avatar {
   display: inline-grid; place-items: center; flex-shrink: 0; overflow: hidden;
   width: 40px; height: 40px; border-radius: 50%;
-  background: var(--accent); color: var(--on-accent);
+  background: var(--accent-bg); color: var(--on-accent);
   font-family: var(--font-display); font-weight: 600; font-size: 18px; line-height: 1;
   user-select: none;
 }

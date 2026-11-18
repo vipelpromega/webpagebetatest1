@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://avdssotwcftjuggsvubd.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
   <title>Configuración</title>
   <script src="js/theme.js"></script>
+  <script src="js/i18n.js"></script>
   <script src="js/sidebar.js"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/auth.js"></script>
@@ -21,9 +22,9 @@
       <span class="label">Expandir</span>
     </button>
     <div class="side-divider" role="separator"></div>
-    <a class="side-btn" href="index.html" aria-label="Casa" data-tooltip="Casa">
+    <a class="side-btn" href="index.html" aria-label="Principal" data-tooltip="Principal">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
-      <span class="label">Casa</span>
+      <span class="label">Principal</span>
     </a>
     <a class="side-btn" data-acceso="miembro" href="temporizador.html" aria-label="Temporizador" data-tooltip="Temporizador">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
@@ -61,6 +62,51 @@
               <div class="segmented" role="group" aria-label="Tema">
                 <button type="button" class="seg" data-theme-option="dark" aria-pressed="false">Oscuro</button>
                 <button type="button" class="seg" data-theme-option="light" aria-pressed="false">Claro</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-card acento-card" id="acento">
+            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0 0 18c1.4 0 2-1 1.6-2-.5-1.2.2-2.5 1.6-2.5H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/></svg></span>
+            <div class="setting-text">
+              <div class="setting-title">Color de acento</div>
+              <div class="setting-desc">Elige un color sólido o un degradado</div>
+            </div>
+            <div class="setting-control">
+              <button type="button" class="btn secondary" id="acento-reset">Restablecer</button>
+            </div>
+            <div class="acento-cuerpo">
+              <div class="acento-sub">Recomendados</div>
+              <div class="muestras" id="acento-recom" role="group" aria-label="Recomendados"></div>
+              <div class="acento-sub">Personalizado</div>
+              <div class="acento-custom">
+                <div class="segmented" role="group" aria-label="Tipo">
+                  <button type="button" class="seg" data-acento-tipo="solido" aria-pressed="false">Sólido</button>
+                  <button type="button" class="seg" data-acento-tipo="degradado" aria-pressed="false">Degradado</button>
+                </div>
+                <label class="color-campo"><span>Primer color</span><input type="color" id="acento-c1" value="#0078d4"></label>
+                <label class="color-campo" id="acento-c2-caja"><span>Segundo color</span><input type="color" id="acento-c2" value="#00b7c3"></label>
+                <div class="segmented" id="acento-ang" role="group" aria-label="Dirección">
+                  <button type="button" class="seg" data-acento-ang="90" aria-pressed="false" aria-label="→">→</button>
+                  <button type="button" class="seg" data-acento-ang="135" aria-pressed="false" aria-label="↘">↘</button>
+                  <button type="button" class="seg" data-acento-ang="180" aria-pressed="false" aria-label="↓">↓</button>
+                  <button type="button" class="seg" data-acento-ang="45" aria-pressed="false" aria-label="↗">↗</button>
+                </div>
+                <div class="acento-vista" id="acento-vista" aria-hidden="true"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-card">
+            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></span>
+            <div class="setting-text">
+              <div class="setting-title">Idioma</div>
+              <div class="setting-desc">Elige el idioma de la página</div>
+            </div>
+            <div class="setting-control">
+              <div class="segmented" role="group" aria-label="Idioma">
+                <button type="button" class="seg" data-idioma="es" aria-pressed="false" lang="es">Español</button>
+                <button type="button" class="seg" data-idioma="en" aria-pressed="false" lang="en">English</button>
               </div>
             </div>
           </div>
@@ -142,6 +188,20 @@
                 <button class="btn secondary" id="clave-cancelar" type="button">Cancelar</button>
               </div>
             </form>
+
+            <div class="setting-card sesiones-card">
+              <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span>
+              <div class="setting-text">
+                <div class="setting-title">Sesiones activas</div>
+                <div class="setting-desc">Dispositivos con la sesión de tu cuenta abierta</div>
+                <p class="f-error" id="sesiones-msg" role="status"></p>
+              </div>
+              <div class="setting-control">
+                <button class="btn secondary" id="sesiones-actualizar" type="button">Actualizar</button>
+                <button class="btn secondary" id="sesiones-otras" type="button" hidden>Cerrar las demás</button>
+              </div>
+              <ul class="sesiones" id="sesiones-lista"></ul>
+            </div>
 
             <div class="setting-card">
               <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></span>

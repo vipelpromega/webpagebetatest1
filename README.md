@@ -59,3 +59,10 @@ muestra el "Nombre de identificación" con el que se creó.
 
 Las secciones restringidas se marcan con `data-acceso="miembro"` (en el `<body>` de la página y
 en su botón de la barra lateral).
+
+## Personalización, idioma y sesiones
+
+- **Color de acento** (Configuración → Apariencia): 8 colores sólidos y 6 degradados recomendados, o uno propio (sólido o degradado con dirección). Se guarda en este navegador (`acento`) y el texto se ajusta solo para mantener buen contraste.
+- **Idioma** (Español / English): se guarda en `idioma`. La traducción está en `js/i18n.js` (diccionario); para añadir textos nuevos, agrega su traducción ahí.
+- **Sesiones activas** (Configuración → Cuenta): lista de dispositivos con la sesión abierta, con opción de cerrar una o todas las demás. Requiere volver a ejecutar `supabase/schema.sql` (añade columnas a `sesiones` y las funciones `mis_sesiones`, `cerrar_sesion`, `cerrar_otras_sesiones`).
+- **Principal**: hora y fecha del dispositivo y clima con [Open-Meteo](https://open-meteo.com) (sin clave). La ciudad se guarda en el navegador; el CSP permite `api.open-meteo.com` y `geocoding-api.open-meteo.com`.

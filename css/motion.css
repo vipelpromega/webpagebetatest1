@@ -2,7 +2,16 @@
    Animaciones: suaves, rápidas y sin molestar
    (se desactivan si el sistema pide "reducir movimiento")
    ========================================================= */
-:root { --ease-out: cubic-bezier(.16, 1, .3, 1); }
+:root { --ease-out: cubic-bezier(.16, 1, .3, 1); --ease-spring: cubic-bezier(.34, 1.56, .64, 1); }
+
+/* Transición suave entre páginas (navegadores que lo soportan) */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: .22s cubic-bezier(.4, 0, 1, 1) both m-sale; }
+::view-transition-new(root) { animation: .38s var(--ease-out) both m-entra; }
+@keyframes m-sale  { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes m-entra { from { opacity: 0; transform: translateY(10px); } }
+@keyframes m-brillo { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+@keyframes m-flota { 50% { transform: translateY(-5px); } }
 
 @keyframes m-arriba   { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes m-escala   { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
@@ -35,15 +44,16 @@ body::before {
 .page main > :nth-child(8) { animation-delay: 640ms; }
 
 .side-btn svg { transition: transform .2s var(--ease-out); }
-.side-btn:hover svg { transform: scale(1.12); }
+.side-btn:hover svg { transform: scale(1.15) rotate(-4deg); transition-timing-function: var(--ease-spring); }
 .side-btn:active svg { transform: scale(.92); }
 
 /* Tarjetas y botones */
 .card, .stat, .fila { transition: transform .2s var(--ease-out), box-shadow .2s, border-color .2s; }
-.card:hover, .stat:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0, 0, 0, .16); }
+.card:hover, .stat:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0, 0, 0, .18); border-color: var(--border-2); }
 .btn, .gate-btn { transition: background .083s linear, transform .12s var(--ease-out), box-shadow .2s; }
 .btn:hover, .gate-btn:hover { box-shadow: 0 3px 10px rgba(0, 0, 0, .18); }
-.btn:active, .gate-btn:active { transform: scale(.98); }
+.btn:active, .gate-btn:active { transform: scale(.97); }
+.btn:hover, .gate-btn:hover { transform: translateY(-1px); }
 .f-box { transition: box-shadow .2s, background-color .15s; }
 
 /* Pantalla de acceso */
@@ -87,7 +97,24 @@ progress { transition: none; }
 .cargando { animation: m-pulso 1.2s ease-in-out infinite; }
 .consola-linea { animation: m-fundido .2s ease both; }
 
+/* Detalles nuevos */
+.clima-icono svg { animation: m-flota 5s ease-in-out infinite; }
+.reloj { transition: color .3s; }
+.muestra { transition-timing-function: var(--ease-spring); }
+.seg { transition: background .2s, color .2s, transform .12s; }
+.seg:active { transform: scale(.94); }
+.sesion { transition: background .15s, border-color .2s, transform .2s var(--ease-out); }
+.sesion:hover { background: var(--field-hover); transform: translateX(2px); }
+.btn.cargando-b, .btn:disabled { transition: opacity .2s; }
+.gate-card { animation-duration: .6s; animation-timing-function: var(--ease-spring); }
+.principal-grid > * { animation: m-escala .6s var(--ease-out) both; }
+.principal-grid > :nth-child(1) { animation-delay: 260ms; }
+.principal-grid > :nth-child(2) { animation-delay: 340ms; }
+.tab { transition: color .2s, background .15s; }
+.cuenta-menu { transform-origin: top left; animation: m-escala .22s var(--ease-spring) both; }
+
 @media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
   *, *::before, *::after {
     animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important;
     transition-duration: .01ms !important; scroll-behavior: auto !important;

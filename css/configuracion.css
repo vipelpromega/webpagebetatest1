@@ -77,7 +77,7 @@
   transition: background .083s linear;
 }
 .seg:hover { background: var(--subtle-hover); }
-.seg.selected { background: var(--accent); color: var(--on-accent); }
+.seg.selected { background: var(--accent-bg); color: var(--on-accent); }
 
 @media (max-width: 560px) {
   .setting-card { flex-wrap: wrap; }
@@ -96,7 +96,7 @@
 .tab[aria-selected="true"] { color: var(--text); }
 .tab::after {
   content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 3px; border-radius: 3px;
-  background: var(--accent); transform: scaleX(0); transition: transform .25s var(--ease-out, ease);
+  background: var(--accent-bg); transform: scaleX(0); transition: transform .25s var(--ease-out, ease);
 }
 .tab[aria-selected="true"]::after { transform: scaleX(1); }
 .subpanel { animation: m-arriba .35s var(--ease-out, ease) both; }
@@ -114,3 +114,42 @@
 @media (max-width: 560px) { .clave-form { margin-left: 0; max-width: none; } }
 
 .setting-icon.con-foto { width: 40px; height: 40px; }
+
+/* ---------- Color de acento ---------- */
+[hidden] { display: none !important; }
+.setting-card.acento-card, .setting-card.sesiones-card { flex-wrap: wrap; }
+.acento-cuerpo { flex: 1 0 100%; display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
+.acento-sub { font-size: 12px; font-weight: 600; color: var(--muted); }
+.muestras { display: flex; flex-wrap: wrap; gap: 10px; }
+.muestra {
+  position: relative; width: 36px; height: 36px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--border-2); background-clip: padding-box;
+  transition: transform .18s var(--ease-out, ease), box-shadow .18s, border-color .18s;
+}
+.muestra:hover { transform: scale(1.12); }
+.muestra:active { transform: scale(.95); }
+.muestra.selected { border-color: var(--text); box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--text); }
+.muestra:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.acento-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.color-campo { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+.color-campo input[type="color"] {
+  width: 40px; height: 28px; padding: 0; background: transparent; border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm); cursor: pointer;
+}
+.acento-vista { flex: 1 1 140px; min-width: 100px; height: 28px; border-radius: var(--radius-sm); border: 1px solid var(--border); transition: background .3s; }
+
+/* ---------- Sesiones activas ---------- */
+.sesiones { flex: 1 0 100%; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sesiones:empty { display: none; }
+.sesion {
+  display: flex; align-items: center; gap: 14px; padding: 10px 12px;
+  background: var(--field); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  animation: m-arriba .3s var(--ease-out, ease) both;
+}
+.sesion.actual { border-color: var(--accent); }
+.sesion-icono { display: grid; place-items: center; width: 24px; flex-shrink: 0; }
+.sesion-icono svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.sesion-texto { flex: 1; min-width: 0; }
+.sesion-titulo { font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sesion-detalle { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.insignia { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--accent-bg); color: var(--on-accent); }
