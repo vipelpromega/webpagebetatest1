@@ -1,0 +1,93 @@
+/* =========================================================
+   Pulido visual: profundidad, jerarquía y detalles
+   (se carga al final, usa los mismos colores del tema)
+   ========================================================= */
+:root {
+  --sombra-1: 0 1px 2px rgba(0, 0, 0, .18), 0 0 0 1px rgba(255, 255, 255, .02) inset;
+  --sombra-2: 0 6px 18px rgba(0, 0, 0, .22);
+  --brillo: inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+:root[data-theme="light"] {
+  --sombra-1: 0 1px 2px rgba(0, 0, 0, .06), 0 1px 1px rgba(0, 0, 0, .03);
+  --sombra-2: 0 8px 22px rgba(20, 30, 60, .12);
+  --brillo: inset 0 1px 0 rgba(255, 255, 255, .8);
+}
+
+/* Fondo con más profundidad */
+body { background-attachment: fixed; }
+
+/* Encabezado de página */
+.page header h1 {
+  font-size: clamp(1.7rem, 3.2vw, 2.2rem); letter-spacing: -.02em; font-weight: 650;
+  position: relative; display: inline-block; padding-bottom: 10px; margin-bottom: 2px;
+}
+.page header h1::after {
+  content: ""; position: absolute; left: 0; bottom: 0; width: 44px; height: 4px; border-radius: 4px;
+  background: var(--accent-bg, var(--accent)); transition: width .5s var(--ease-out, ease);
+}
+.page header:hover h1::after { width: 72px; }
+.page header p { margin-top: 6px; }
+
+/* Tarjetas con elevación */
+.card, .stat, .setting-card, .graf-viz, .fila, .tabla-envoltorio, .modal {
+  box-shadow: var(--sombra-1), var(--brillo);
+}
+.card, .stat, .graf-viz { border-radius: 12px; }
+.setting-card { transition: border-color .2s, background .2s, box-shadow .2s; }
+.setting-card:hover { border-color: var(--border-2); background: var(--panel-2, var(--panel)); }
+
+/* Tarjeta de bienvenida destacada */
+.bienvenida { position: relative; }
+section.card:has(.bienvenida) {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    var(--accent-bg, var(--accent)) border-box;
+  border: 1px solid transparent;
+}
+
+/* Estadísticas del admin: barra de color arriba */
+.stat { position: relative; overflow: hidden; padding-top: 18px; }
+.stat::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: var(--accent-bg, var(--accent)); opacity: .9;
+}
+.stat-num { letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.stat-etq { font-size: 13px; }
+
+/* Barra lateral: efecto acrílico */
+.sidebar {
+  backdrop-filter: blur(22px) saturate(1.5); -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  box-shadow: var(--sombra-2);
+}
+.side-btn[aria-current="page"], .side-btn.actual { position: relative; }
+.side-btn[aria-current="page"]::before, .side-btn.actual::before {
+  content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px;
+  background: var(--accent-bg, var(--accent)); animation: m-fundido .3s ease both;
+}
+
+/* Botones y campos */
+.btn, .gate-btn { border-radius: 6px; font-weight: 500; }
+.btn:not(.secondary):not(.danger), .gate-btn { box-shadow: 0 1px 2px rgba(0, 0, 0, .2), var(--brillo); }
+.f-input { text-overflow: ellipsis; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Tablas */
+.tabla th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.tabla tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 2.5%, transparent); }
+.tabla-envoltorio { border-radius: 12px; overflow: hidden; }
+
+/* Insignias */
+.badge { font-weight: 500; backdrop-filter: blur(4px); }
+.badge.usada { background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.badge.sin_usar { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.badge.suspendida { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+
+/* Pantalla de acceso */
+.gate-card { border-radius: 16px; box-shadow: var(--shadow-dialog), var(--brillo); }
+.gate-card h1, .gate-card h2 { letter-spacing: -.01em; }
+
+/* Barras de desplazamiento discretas */
+* { scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
+
+@media (max-width: 560px) { .page header h1::after { width: 36px; } }

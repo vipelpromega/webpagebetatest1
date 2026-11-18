@@ -51,6 +51,10 @@ create table if not exists public.usuarios (
 -- Foto de perfil (opcional): imagen pequeña ya reducida por la página, guardada como texto
 alter table public.usuarios add column if not exists avatar text;
 
+-- Cuenta suspendida por un administrador (no puede entrar; se conservan sus datos)
+alter table public.usuarios add column if not exists suspendida    boolean not null default false;
+alter table public.usuarios add column if not exists suspendida_en timestamptz;
+
 create table if not exists public.codigos (
   hash              text primary key,           -- HMAC-SHA256 de la clave (para buscarla)
   cifrada           bytea not null,             -- la clave cifrada con AES-256 (la ve el panel con el ojo)
@@ -78,6 +82,17 @@ alter table public.sesiones add column if not exists dispositivo text;
 alter table public.sesiones add column if not exists ip          text;
 alter table public.sesiones add column if not exists ultima      timestamptz not null default now();
 create unique index if not exists sesiones_id_idx on public.sesiones (id);
+
+-- Historial de inicios de sesión de cada cuenta
+create table if not exists public.historial (
+  id          bigint generated always as identity primary key,
+  usuario_id  uuid not null references public.usuarios (id) on delete cascade,
+  fecha       timestamptz not null default now(),
+  evento      text not null check (evento in ('ingreso', 'registro', 'fallo', 'suspendida')),
+  dispositivo text,
+  ip          text
+);
+create index if not exists historial_usuario_idx on public.historial (usuario_id, fecha desc);
 
 create table if not exists public.intentos (
   clave       text primary key,
@@ -108,6 +123,7 @@ alter table public.usuarios  enable row level security;
 alter table public.codigos   enable row level security;
 alter table public.sesiones  enable row level security;
 alter table public.intentos  enable row level security;
+alter table public.historial enable row level security;
 alter table public.admins    enable row level security;
 alter table public.auditoria enable row level security;
 
@@ -115,6 +131,7 @@ revoke all on table public.usuarios  from public, anon, authenticated;
 revoke all on table public.codigos   from public, anon, authenticated;
 revoke all on table public.sesiones  from public, anon, authenticated;
 revoke all on table public.intentos  from public, anon, authenticated;
+revoke all on table public.historial from public, anon, authenticated;
 revoke all on table public.admins    from public, anon, authenticated;
 revoke all on table public.auditoria from public, anon, authenticated;
 
@@ -229,6 +246,17 @@ begin
   end if;
 end $$;
 
+-- Anota un evento en el historial de la cuenta (y borra lo de más de 180 días)
+create or replace function privado.anotar(p_uid uuid, p_evento text)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  delete from public.historial where usuario_id = p_uid and fecha < now() - interval '180 days';
+  insert into public.historial (usuario_id, evento, dispositivo, ip)
+  values (p_uid, p_evento,
+          left(coalesce(nullif(current_setting('request.headers', true), '')::json ->> 'user-agent', ''), 200),
+          privado.ip());
+end $$;
+
 create or replace function privado.nueva_sesion(p_uid uuid)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -255,7 +283,7 @@ begin
   select u.* into v
     from public.sesiones s
     join public.usuarios u on u.id = s.usuario_id
-   where s.token = privado.hash_texto(p_token) and s.expira > now();
+   where s.token = privado.hash_texto(p_token) and s.expira > now() and not u.suspendida;
   if v.id is not null then
     update public.sesiones set ultima = now()
      where token = privado.hash_texto(p_token) and ultima < now() - interval '1 minute';
@@ -430,6 +458,7 @@ begin
   update public.codigos set usado_por = v_id where hash = v_hash;
   perform privado.evento('cuenta_creada', jsonb_build_object('usuario', v_usuario));
   v_sesion := privado.nueva_sesion(v_id);
+  perform privado.anotar(v_id, 'registro');
 
   return jsonb_build_object(
     'ok', true,
@@ -470,10 +499,17 @@ begin
   if not v_ok then
     perform privado.registrar_fallo(v_ku, 5, 30);
     perform privado.registrar_fallo(v_ki, 20, 60);
+    if v_user.id is not null then perform privado.anotar(v_user.id, 'fallo'); end if;
     return jsonb_build_object('ok', false, 'error', 'credenciales');
   end if;
 
+  if v_user.suspendida then
+    perform privado.anotar(v_user.id, 'suspendida');
+    return jsonb_build_object('ok', false, 'error', 'suspendida');
+  end if;
+
   delete from public.intentos where clave = v_ku;
+  perform privado.anotar(v_user.id, 'ingreso');
   v_sesion := privado.nueva_sesion(v_user.id);
 
   return jsonb_build_object(
@@ -569,6 +605,21 @@ returns jsonb language plpgsql security definer set search_path = '' as $$
 begin
   delete from public.sesiones where token = privado.hash_texto(coalesce(p_token, ''));
   return jsonb_build_object('ok', true);
+end $$;
+
+-- 6a) Historial de inicios de sesión
+create or replace function public.mi_historial(p_token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  return jsonb_build_object('ok', true, 'eventos', coalesce((
+    select jsonb_agg(jsonb_build_object('fecha', h.fecha, 'evento', h.evento, 'dispositivo', h.dispositivo, 'ip', h.ip)
+                     order by h.fecha desc)
+      from (select * from public.historial where usuario_id = v.id order by fecha desc limit 30) h), '[]'::jsonb));
 end $$;
 
 -- 6b) Sesiones activas de la cuenta
@@ -699,8 +750,9 @@ begin
     select jsonb_agg(x order by x.creado desc) from (
       select c.id, c.etiqueta, c.vista,
              case when c.usado_en is not null then 'usada' else 'sin_usar' end as estado,
-             c.creado, c.usado_en, c.creado_por_email
+             c.creado, c.usado_en, c.creado_por_email, coalesce(u.suspendida, false) as suspendida
         from public.codigos c
+        left join public.usuarios u on u.id = c.usado_por
        order by c.creado desc
        limit 500) x), '[]'::jsonb));
 end $$;
@@ -776,7 +828,7 @@ begin
     'estado', case when v.usado_en is not null then 'usada' else 'sin_usar' end,
     'creado', v.creado, 'usado_en', v.usado_en, 'creado_por_email', v.creado_por_email,
     'cuenta', case when u.id is null then null
-                   else jsonb_build_object('usuario', u.usuario, 'nombre', u.nombre, 'avatar', u.avatar) end);
+                   else jsonb_build_object('usuario', u.usuario, 'nombre', u.nombre, 'avatar', u.avatar, 'suspendida', u.suspendida, 'suspendida_en', u.suspendida_en) end);
 end $$;
 
 -- F3) Restablecer la contraseña de la cuenta de una clave.
@@ -816,6 +868,59 @@ begin
 end $$;
 
 -- G) Registros (historial de acciones)
+-- Suspender / reactivar la cuenta de una clave (no pide contraseña maestra; queda en el registro)
+create or replace function public.admin_suspender_cuenta(p_id uuid, p_suspender boolean)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_admin uuid := privado.admin_id();
+  v_uid   uuid;
+  v_user  text;
+  v_n     int := 0;
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  select usado_por into v_uid from public.codigos where id = p_id;
+  if v_uid is null then
+    return jsonb_build_object('ok', false, 'error', 'sin_cuenta');
+  end if;
+  update public.usuarios
+     set suspendida = coalesce(p_suspender, false),
+         suspendida_en = case when coalesce(p_suspender, false) then now() else null end
+   where id = v_uid returning usuario into v_user;
+  if coalesce(p_suspender, false) then
+    delete from public.sesiones where usuario_id = v_uid;
+    get diagnostics v_n = row_count;
+  end if;
+  perform privado.auditar(v_admin, case when p_suspender then 'suspender_cuenta' else 'reactivar_cuenta' end,
+    jsonb_build_object('usuario', v_user, 'sesiones_cerradas', v_n));
+  return jsonb_build_object('ok', true, 'suspendida', coalesce(p_suspender, false));
+end $$;
+
+-- Datos para las gráficas del Panel (últimos 14 días, en UTC)
+create or replace function public.admin_graficas()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_admin uuid := privado.admin_id();
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  return jsonb_build_object('ok', true,
+    'dias', (
+      select jsonb_agg(jsonb_build_object(
+        'dia', d::date,
+        'registros', (select count(*) from public.usuarios u where u.creado::date = d::date),
+        'claves', (select count(*) from public.codigos c where c.creado::date = d::date),
+        'ingresos', (select count(*) from public.historial h where h.fecha::date = d::date and h.evento in ('ingreso', 'registro')),
+        'fallos', (select count(*) from public.historial h where h.fecha::date = d::date and h.evento in ('fallo', 'suspendida'))
+      ) order by d)
+      from generate_series(current_date - 13, current_date, interval '1 day') d),
+    'claves_usadas', (select count(*) from public.codigos where usado_en is not null),
+    'claves_sin_usar', (select count(*) from public.codigos where usado_en is null),
+    'cuentas_activas', (select count(*) from public.usuarios where not suspendida),
+    'cuentas_suspendidas', (select count(*) from public.usuarios where suspendida));
+end $$;
+
 create or replace function public.admin_registros(p_limite int default 200)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare v_admin uuid := privado.admin_id();
@@ -972,6 +1077,9 @@ revoke all on function public.yo(text)                             from public, 
 revoke all on function public.cambiar_nombre(text, text)           from public, anon, authenticated;
 revoke all on function public.salir(text)                          from public, anon, authenticated;
 revoke all on function public.mis_sesiones(text)                   from public, anon, authenticated;
+revoke all on function public.mi_historial(text)                   from public, anon, authenticated;
+revoke all on function public.admin_suspender_cuenta(uuid, boolean) from public, anon, authenticated;
+revoke all on function public.admin_graficas()                      from public, anon, authenticated;
 revoke all on function public.cerrar_sesion(text, uuid)            from public, anon, authenticated;
 revoke all on function public.cerrar_otras_sesiones(text)          from public, anon, authenticated;
 
@@ -983,6 +1091,7 @@ grant execute on function public.yo(text)                          to anon, auth
 grant execute on function public.cambiar_nombre(text, text)        to anon, authenticated;
 grant execute on function public.salir(text)                       to anon, authenticated;
 grant execute on function public.mis_sesiones(text)                to anon, authenticated;
+grant execute on function public.mi_historial(text)                to anon, authenticated;
 grant execute on function public.cerrar_sesion(text, uuid)         to anon, authenticated;
 grant execute on function public.cerrar_otras_sesiones(text)       to anon, authenticated;
 
@@ -1011,6 +1120,8 @@ grant execute on function public.admin_detalle_clave(uuid)         to authentica
 grant execute on function public.admin_restablecer_clave(uuid, text, text) to authenticated;
 grant execute on function public.cambiar_clave(text, text, text)   to anon, authenticated;
 grant execute on function public.admin_registros(int)              to authenticated;
+grant execute on function public.admin_suspender_cuenta(uuid, boolean) to authenticated;
+grant execute on function public.admin_graficas()                   to authenticated;
 grant execute on function public.admin_red()                       to authenticated;
 grant execute on function public.admin_desbloquear(text, text)     to authenticated;
 grant execute on function public.admin_consola(text)               to authenticated;

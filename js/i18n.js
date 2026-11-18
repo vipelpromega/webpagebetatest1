@@ -91,6 +91,11 @@
     "No se pudieron cargar las sesiones.": "Couldn't load the sessions.", "Sesión cerrada.": "Session closed.",
     "Se cerraron las demás sesiones.": "Other sessions were closed.", "Navegador desconocido": "Unknown browser", "Sistema desconocido": "Unknown system",
     "ahora": "just now", "Iniciada": "Started", "Última actividad": "Last activity", "Cuenta (menú)": "Account (menu)",
+    "Sistema": "System", "\"Sistema\" sigue el modo de tu dispositivo. Se guarda en este navegador": "\"System\" follows your device's mode. Saved in this browser",
+    "Historial de inicios de sesión": "Sign-in history", "Tus últimos accesos e intentos fallidos": "Your latest sign-ins and failed attempts",
+    "Inicio de sesión": "Sign-in", "Cuenta creada": "Account created", "Intento fallido": "Failed attempt",
+    "Intento con cuenta suspendida": "Attempt with suspended account", "No se pudo cargar el historial.": "Couldn't load the history.",
+    "Tu cuenta está suspendida. Contacta a un administrador.": "Your account is suspended. Contact an administrator.",
     "Cambiar foto de perfil": "Change profile photo", "Más secciones": "More sections"
   };
 
