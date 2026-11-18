@@ -44,7 +44,7 @@ body::before {
 .page main > :nth-child(8) { animation-delay: 640ms; }
 
 .side-btn svg { transition: transform .2s var(--ease-out); }
-.side-btn:hover svg { transform: scale(1.15) rotate(-4deg); transition-timing-function: var(--ease-spring); }
+.side-btn:hover svg { transform: scale(1.12); }
 .side-btn:active svg { transform: scale(.92); }
 
 /* Tarjetas y botones */
