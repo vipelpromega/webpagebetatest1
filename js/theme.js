@@ -2,39 +2,28 @@
 (function () {
   var KEY = "tema";
   var KEY_ACENTO = "acento";
-  var DEFAULT = "auto";
+  var DEFAULT = "dark";
   var root = document.documentElement;
 
-  var mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
-
-  // Modo elegido: "auto" (sigue al sistema), "light" u "dark"
   function read() {
     try {
       var v = localStorage.getItem(KEY);
-      return v === "light" || v === "dark" || v === "auto" ? v : DEFAULT;
+      return v === "light" || v === "dark" ? v : DEFAULT;
     } catch (e) {
       return DEFAULT;
     }
   }
 
-  function efectivo() {
-    var m = read();
-    return m === "auto" ? (mq && mq.matches ? "light" : "dark") : m;
-  }
-
-  function apply() {
-    root.setAttribute("data-theme", efectivo());
-    root.setAttribute("data-modo", read());
+  function apply(theme) {
+    root.setAttribute("data-theme", theme);
   }
 
   function set(theme) {
-    if (theme !== "light" && theme !== "dark" && theme !== "auto") return;
+    if (theme !== "light" && theme !== "dark") return;
+    apply(theme);
     try { localStorage.setItem(KEY, theme); } catch (e) { /* sin almacenamiento */ }
-    apply();
     aplicarAcento(leerAcento());
   }
-
-  if (mq && mq.addEventListener) mq.addEventListener("change", function () { apply(); aplicarAcento(leerAcento()); });
 
   /* ---------- Color de acento ---------- */
   var PROPS = ["--accent", "--accent-2", "--accent-3", "--on-accent", "--accent-bg", "--accent-bg-2", "--accent-bg-3",
@@ -108,7 +97,7 @@
     aplicarAcento(leerAcento());
   }
 
-  apply();
+  apply(read());
   aplicarAcento(leerAcento());
   window.Theme = { get: read, set: set, getAccent: leerAcento, setAccent: setAcento };
 })();

@@ -106,7 +106,6 @@
       case "usuario_formato": return "El nombre de usuario debe tener de 3 a 20 caracteres: letras, números, punto, guion o guion bajo.";
       case "clave_formato": return "La contraseña debe tener entre 8 y 72 caracteres.";
       case "usuario_en_uso": return "Ese nombre de usuario ya está en uso.";
-      case "suspendida": return "Tu cuenta está suspendida. Contacta a un administrador.";
       case "credenciales": return "Usuario o contraseña incorrectos.";
       case "sesion": return "Tu sesión expiró. Vuelve a iniciar sesión.";
       case "permiso": return "No tienes permiso para hacer esto.";
@@ -378,18 +377,7 @@
     });
   }
 
-  function historialDeAcceso() {
-    var s = leerSesion();
-    if (!s) return Promise.resolve({ ok: false, error: mensaje({ error: "sesion" }) });
-    return rpc("mi_historial", { p_token: s.token }).then(function (r) {
-      if (r.ok) return { ok: true, eventos: r.eventos || [] };
-      if (r.error === "sesion") { quitar(K_SESION); location.reload(); }
-      return { ok: false, error: mensaje(r) };
-    });
-  }
-
   window.Auth = {
-    historialDeAcceso: historialDeAcceso,
     sesionesActivas: sesionesActivas,
     cerrarSesionPorId: cerrarSesionPorId,
     cerrarOtrasSesiones: cerrarOtrasSesiones,

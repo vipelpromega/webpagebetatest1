@@ -299,38 +299,6 @@
     });
     cargarSesiones();
 
-    // Historial de inicios de sesión
-    const hisLista = document.getElementById("historial-lista");
-    const hisMsg = document.getElementById("historial-msg");
-    const hisAct = document.getElementById("historial-actualizar");
-    const ETIQ = { ingreso: ["Inicio de sesión", "ok"], registro: ["Cuenta creada", "nuevo"], fallo: ["Intento fallido", "mal"], suspendida: ["Intento con cuenta suspendida", "mal"] };
-    async function cargarHistorial() {
-      hisMsg.textContent = "";
-      hisAct.disabled = true;
-      const r = await Auth.historialDeAcceso();
-      hisAct.disabled = false;
-      if (!r.ok) { hisMsg.textContent = "No se pudo cargar el historial."; return; }
-      hisLista.replaceChildren();
-      r.eventos.forEach((x) => {
-        const d = dispositivo(x.dispositivo);
-        const et = ETIQ[x.evento] || [x.evento, "ok"];
-        const li = document.createElement("li");
-        li.className = "sesion";
-        const p = document.createElement("span"); p.className = "punto " + et[1];
-        const tx = document.createElement("div"); tx.className = "sesion-texto";
-        const t1 = document.createElement("div"); t1.className = "sesion-titulo"; t1.textContent = et[0];
-        const t2 = document.createElement("div"); t2.className = "sesion-detalle";
-        t2.textContent = d.texto + (x.ip && x.ip !== "desconocida" ? " · " + x.ip : "");
-        tx.append(t1, t2);
-        const f = document.createElement("span"); f.className = "sesion-fecha";
-        f.textContent = new Date(x.fecha).toLocaleString(loc, { dateStyle: "medium", timeStyle: "short" });
-        li.append(p, tx, f);
-        hisLista.appendChild(li);
-      });
-    }
-    hisAct.addEventListener("click", cargarHistorial);
-    cargarHistorial();
-
     document.getElementById("cerrar-sesion").addEventListener("click", () => {
       Auth.cerrarSesion();
     });
