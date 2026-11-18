@@ -23,6 +23,7 @@ drop function if exists public.admin_crear_clave(text);
 drop function if exists public.admin_listar_claves();
 drop function if exists public.admin_revocar_clave(uuid);
 drop function if exists public.admin_borrar_clave(uuid);
+drop function if exists public.admin_borrar_clave(uuid, text);
 drop function if exists public.admin_ver_clave(uuid);
 drop function if exists public.admin_detalle_clave(uuid);
 drop function if exists public.admin_restablecer_clave(uuid, text, text);

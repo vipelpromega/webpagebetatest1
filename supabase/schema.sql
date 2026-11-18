@@ -156,6 +156,31 @@ returns boolean language sql immutable set search_path = '' as $$
           and p ~ '^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$')
 $$;
 
+-- Comprueba la contraseña maestra (con límite de intentos).
+-- Devuelve NULL si es correcta, o el error (jsonb) listo para responder.
+create or replace function privado.verificar_maestra(p_admin uuid, p_maestra text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_ka   text := 'maestra:' || p_admin::text;
+  v_seg  int  := privado.segundos_bloqueado('maestra:' || p_admin::text);
+  v_hash text;
+begin
+  if v_seg > 0 then
+    return jsonb_build_object('ok', false, 'error', 'espera', 'segundos', v_seg);
+  end if;
+  select valor into v_hash from privado.secretos where nombre = 'maestra';
+  if v_hash is null then
+    return jsonb_build_object('ok', false, 'error', 'maestra_no_definida');
+  end if;
+  if v_hash is distinct from extensions.crypt(coalesce(p_maestra, ''), v_hash) then
+    perform privado.registrar_fallo(v_ka, 5, 300);
+    perform privado.auditar(p_admin, 'maestra_fallida', null);
+    return jsonb_build_object('ok', false, 'error', 'maestra_incorrecta');
+  end if;
+  delete from public.intentos where clave = v_ka;
+  return null;
+end $$;
+
 -- IP del visitante (la pone el servidor de Supabase en las cabeceras)
 create or replace function privado.ip()
 returns text language sql stable set search_path = '' as $$
@@ -642,15 +667,21 @@ end $$;
 
 -- F) Borrar una clave: si ya se usó, se borra TAMBIÉN la cuenta que la usó
 --    (y sus sesiones se cierran, porque dependen de la cuenta).
-create or replace function public.admin_borrar_clave(p_id uuid)
+drop function if exists public.admin_borrar_clave(uuid);
+create or replace function public.admin_borrar_clave(p_id uuid, p_maestra text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_admin   uuid := privado.admin_id();
   v         public.codigos;
   v_usuario text;
+  v_err     jsonb;
 begin
   if v_admin is null then
     return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  v_err := privado.verificar_maestra(v_admin, p_maestra);   -- borrar exige la contraseña maestra
+  if v_err is not null then
+    return v_err;
   end if;
   delete from public.codigos where id = p_id returning * into v;
   if v.id is null then
@@ -687,7 +718,7 @@ begin
     'estado', case when v.usado_en is not null then 'usada' else 'sin_usar' end,
     'creado', v.creado, 'usado_en', v.usado_en, 'creado_por_email', v.creado_por_email,
     'cuenta', case when u.id is null then null
-                   else jsonb_build_object('usuario', u.usuario, 'avatar', u.avatar) end);
+                   else jsonb_build_object('usuario', u.usuario, 'nombre', u.nombre, 'avatar', u.avatar) end);
 end $$;
 
 -- F3) Restablecer la contraseña de la cuenta de una clave.
@@ -697,30 +728,17 @@ create or replace function public.admin_restablecer_clave(p_id uuid, p_maestra t
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_admin uuid := privado.admin_id();
-  v_ka    text;
-  v_seg   int;
-  v_hash  text;
+  v_err   jsonb;
   v       public.codigos;
   u       public.usuarios;
 begin
   if v_admin is null then
     return jsonb_build_object('ok', false, 'error', 'no_autorizado');
   end if;
-  v_ka := 'maestra:' || v_admin::text;
-  v_seg := privado.segundos_bloqueado(v_ka);
-  if v_seg > 0 then
-    return jsonb_build_object('ok', false, 'error', 'espera', 'segundos', v_seg);
+  v_err := privado.verificar_maestra(v_admin, p_maestra);
+  if v_err is not null then
+    return v_err;
   end if;
-  select valor into v_hash from privado.secretos where nombre = 'maestra';
-  if v_hash is null then
-    return jsonb_build_object('ok', false, 'error', 'maestra_no_definida');
-  end if;
-  if v_hash is distinct from extensions.crypt(coalesce(p_maestra, ''), v_hash) then
-    perform privado.registrar_fallo(v_ka, 5, 300);
-    perform privado.auditar(v_admin, 'maestra_fallida', null);
-    return jsonb_build_object('ok', false, 'error', 'maestra_incorrecta');
-  end if;
-  delete from public.intentos where clave = v_ka;
   if octet_length(coalesce(p_nueva, '')) < 8 or octet_length(p_nueva) > 72 then
     return jsonb_build_object('ok', false, 'error', 'clave_formato');
   end if;
@@ -909,7 +927,7 @@ revoke all on function public.admin_yo()                           from public, 
 revoke all on function public.admin_estado()                       from public, anon, authenticated;
 revoke all on function public.admin_crear_clave(text)              from public, anon, authenticated;
 revoke all on function public.admin_listar_claves()                from public, anon, authenticated;
-revoke all on function public.admin_borrar_clave(uuid)             from public, anon, authenticated;
+revoke all on function public.admin_borrar_clave(uuid, text)       from public, anon, authenticated;
 revoke all on function public.admin_ver_clave(uuid)                from public, anon, authenticated;
 revoke all on function public.admin_detalle_clave(uuid)            from public, anon, authenticated;
 revoke all on function public.admin_restablecer_clave(uuid, text, text) from public, anon, authenticated;
@@ -923,7 +941,7 @@ grant execute on function public.admin_yo()                        to authentica
 grant execute on function public.admin_estado()                    to authenticated;
 grant execute on function public.admin_crear_clave(text)           to authenticated;
 grant execute on function public.admin_listar_claves()             to authenticated;
-grant execute on function public.admin_borrar_clave(uuid)          to authenticated;
+grant execute on function public.admin_borrar_clave(uuid, text)    to authenticated;
 grant execute on function public.admin_ver_clave(uuid)             to authenticated;
 grant execute on function public.admin_detalle_clave(uuid)         to authenticated;
 grant execute on function public.admin_restablecer_clave(uuid, text, text) to authenticated;
