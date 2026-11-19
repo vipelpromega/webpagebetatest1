@@ -56,10 +56,11 @@
             <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18z" fill="currentColor" stroke="none"/></svg></span>
             <div class="setting-text">
               <div class="setting-title">Elige tu modo</div>
-              <div class="setting-desc">Se guarda en este navegador</div>
+              <div class="setting-desc">"Sistema" sigue el modo de tu dispositivo. Se guarda en este navegador</div>
             </div>
             <div class="setting-control">
               <div class="segmented" role="group" aria-label="Tema">
+                <button type="button" class="seg" data-theme-option="auto" aria-pressed="false">Sistema</button>
                 <button type="button" class="seg" data-theme-option="dark" aria-pressed="false">Oscuro</button>
                 <button type="button" class="seg" data-theme-option="light" aria-pressed="false">Claro</button>
               </div>
@@ -201,6 +202,19 @@
                 <button class="btn secondary" id="sesiones-otras" type="button" hidden>Cerrar las demás</button>
               </div>
               <ul class="sesiones" id="sesiones-lista"></ul>
+            </div>
+
+            <div class="setting-card historial-card">
+              <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+              <div class="setting-text">
+                <div class="setting-title">Historial de inicios de sesión</div>
+                <div class="setting-desc">Tus últimos accesos e intentos fallidos</div>
+                <p class="f-error" id="historial-msg" role="status"></p>
+              </div>
+              <div class="setting-control">
+                <button class="btn secondary" id="historial-actualizar" type="button">Actualizar</button>
+              </div>
+              <ul class="sesiones historial" id="historial-lista"></ul>
             </div>
 
             <div class="setting-card">

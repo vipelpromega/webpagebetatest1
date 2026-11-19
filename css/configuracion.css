@@ -117,7 +117,7 @@
 
 /* ---------- Color de acento ---------- */
 [hidden] { display: none !important; }
-.setting-card.acento-card, .setting-card.sesiones-card { flex-wrap: wrap; }
+.setting-card.acento-card, .setting-card.sesiones-card, .setting-card.historial-card { flex-wrap: wrap; }
 .acento-cuerpo { flex: 1 0 100%; display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
 .acento-sub { font-size: 12px; font-weight: 600; color: var(--muted); }
 .muestras { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -153,3 +153,12 @@
 .sesion-titulo { font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sesion-detalle { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 .insignia { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--accent-bg); color: var(--on-accent); }
+
+/* ---------- Historial ---------- */
+.historial { max-height: 320px; overflow: auto; }
+.sesion .punto { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--muted); }
+.sesion .punto.ok { background: #2ea043; }
+.sesion .punto.mal { background: var(--danger); }
+.sesion .punto.nuevo { background: var(--accent); }
+.sesion-fecha { font-size: 12px; color: var(--muted); white-space: nowrap; }
+@media (max-width: 560px) { .sesion-fecha { display: none; } }
