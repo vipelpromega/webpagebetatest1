@@ -53,6 +53,9 @@ alter table public.usuarios add column if not exists avatar text;
 
 -- Cuenta suspendida por un administrador (no puede entrar; se conservan sus datos)
 alter table public.usuarios add column if not exists suspendida    boolean not null default false;
+
+-- Preferencias que viajan con la cuenta (tema, acento, idioma, fondo)
+alter table public.usuarios add column if not exists preferencias jsonb not null default '{}'::jsonb;
 alter table public.usuarios add column if not exists suspendida_en timestamptz;
 
 create table if not exists public.codigos (
@@ -92,6 +95,7 @@ create table if not exists public.historial (
   dispositivo text,
   ip          text
 );
+alter table public.historial add column if not exists pais text;
 create index if not exists historial_usuario_idx on public.historial (usuario_id, fecha desc);
 
 create table if not exists public.intentos (
@@ -251,10 +255,13 @@ create or replace function privado.anotar(p_uid uuid, p_evento text)
 returns void language plpgsql security definer set search_path = '' as $$
 begin
   delete from public.historial where usuario_id = p_uid and fecha < now() - interval '180 days';
-  insert into public.historial (usuario_id, evento, dispositivo, ip)
+  insert into public.historial (usuario_id, evento, dispositivo, ip, pais)
   values (p_uid, p_evento,
           left(coalesce(nullif(current_setting('request.headers', true), '')::json ->> 'user-agent', ''), 200),
-          privado.ip());
+          privado.ip(),
+          -- país según la cabecera de Cloudflare (si el servidor la envía); si no, queda vacío
+          (select upper(x) from (select nullif(current_setting('request.headers', true), '')::json ->> 'cf-ipcountry' as x) t
+            where x ~* '^[a-z0-9]{2}$'));
 end $$;
 
 create or replace function privado.nueva_sesion(p_uid uuid)
@@ -622,6 +629,63 @@ begin
       from (select * from public.historial where usuario_id = v.id order by fecha desc limit 30) h), '[]'::jsonb));
 end $$;
 
+-- 6c) Preferencias que viajan con la cuenta
+create or replace function public.mis_preferencias(p_token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  return jsonb_build_object('ok', true, 'preferencias', v.preferencias);
+end $$;
+
+create or replace function public.guardar_preferencias(p_token text, p_prefs jsonb)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v public.usuarios;
+  r jsonb := '{}'::jsonb;
+  a jsonb;
+  m jsonb;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  if p_prefs is null or jsonb_typeof(p_prefs) <> 'object' or length(p_prefs::text) > 2000 then
+    return jsonb_build_object('ok', false, 'error', 'preferencias');
+  end if;
+  -- Solo se guardan claves y valores conocidos
+  if p_prefs ->> 'tema' in ('auto', 'light', 'dark') then r := r || jsonb_build_object('tema', p_prefs ->> 'tema'); end if;
+  if p_prefs ->> 'idioma' in ('es', 'en') then r := r || jsonb_build_object('idioma', p_prefs ->> 'idioma'); end if;
+  if p_prefs ->> 'fondo' in ('ninguno', 'aurora', 'atardecer', 'oceano', 'bosque', 'noche', 'puntos', 'cuadricula', 'diagonal') then
+    r := r || jsonb_build_object('fondo', p_prefs ->> 'fondo');
+  end if;
+  if p_prefs ? 'acento' then
+    a := p_prefs -> 'acento';
+    if jsonb_typeof(a) = 'null' then
+      r := r || jsonb_build_object('acento', null);
+    elsif jsonb_typeof(a) = 'object'
+      and a ->> 'tipo' in ('solido', 'degradado')
+      and a ->> 'c1' ~ '^#[0-9a-fA-F]{6}$'
+      and (a ->> 'tipo' = 'solido' or a ->> 'c2' ~ '^#[0-9a-fA-F]{6}$') then
+      r := r || jsonb_build_object('acento', jsonb_build_object(
+        'tipo', a ->> 'tipo', 'c1', lower(a ->> 'c1'),
+        'c2', lower(coalesce(a ->> 'c2', a ->> 'c1')),
+        'ang', case when (a ->> 'ang') in ('45', '90', '135', '180') then (a ->> 'ang')::int else 135 end));
+    end if;
+  end if;
+  m := v.preferencias || (r - 'acento');
+  if r ? 'acento' then
+    if r -> 'acento' = 'null'::jsonb then m := m - 'acento';
+    else m := m || jsonb_build_object('acento', r -> 'acento');
+    end if;
+  end if;
+  update public.usuarios set preferencias = m where id = v.id;
+  return jsonb_build_object('ok', true, 'preferencias', m);
+end $$;
+
 -- 6b) Sesiones activas de la cuenta
 create or replace function public.mis_sesiones(p_token text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -903,6 +967,23 @@ begin
   return jsonb_build_object('ok', true, 'suspendida', coalesce(p_suspender, false));
 end $$;
 
+-- Países desde donde se accede (según el historial de ingresos)
+create or replace function public.admin_paises()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_admin uuid := privado.admin_id();
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  return jsonb_build_object('ok', true,
+    'total', (select count(*) from public.historial where evento in ('ingreso', 'registro')),
+    'paises', coalesce((
+      select jsonb_agg(jsonb_build_object('pais', t.pais, 'accesos', t.n, 'cuentas', t.c, 'ultimo', t.u) order by t.n desc, t.pais)
+        from (select coalesce(upper(pais), '??') as pais, count(*) as n, count(distinct usuario_id) as c, max(fecha) as u
+                from public.historial where evento in ('ingreso', 'registro')
+               group by 1) t), '[]'::jsonb));
+end $$;
+
 -- Datos para las gráficas del Panel (últimos 14 días, en UTC)
 create or replace function public.admin_graficas()
 returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -1084,6 +1165,9 @@ revoke all on function public.cambiar_nombre(text, text)           from public, 
 revoke all on function public.salir(text)                          from public, anon, authenticated;
 revoke all on function public.mis_sesiones(text)                   from public, anon, authenticated;
 revoke all on function public.mi_historial(text)                   from public, anon, authenticated;
+revoke all on function public.mis_preferencias(text)               from public, anon, authenticated;
+revoke all on function public.guardar_preferencias(text, jsonb)    from public, anon, authenticated;
+revoke all on function public.admin_paises()                       from public, anon, authenticated;
 revoke all on function public.admin_suspender_cuenta(uuid, boolean, text) from public, anon, authenticated;
 revoke all on function public.admin_graficas()                      from public, anon, authenticated;
 revoke all on function public.cerrar_sesion(text, uuid)            from public, anon, authenticated;
@@ -1098,6 +1182,8 @@ grant execute on function public.cambiar_nombre(text, text)        to anon, auth
 grant execute on function public.salir(text)                       to anon, authenticated;
 grant execute on function public.mis_sesiones(text)                to anon, authenticated;
 grant execute on function public.mi_historial(text)                to anon, authenticated;
+grant execute on function public.mis_preferencias(text)            to anon, authenticated;
+grant execute on function public.guardar_preferencias(text, jsonb) to anon, authenticated;
 grant execute on function public.cerrar_sesion(text, uuid)         to anon, authenticated;
 grant execute on function public.cerrar_otras_sesiones(text)       to anon, authenticated;
 
@@ -1128,6 +1214,7 @@ grant execute on function public.cambiar_clave(text, text, text)   to anon, auth
 grant execute on function public.admin_registros(int)              to authenticated;
 grant execute on function public.admin_suspender_cuenta(uuid, boolean, text) to authenticated;
 grant execute on function public.admin_graficas()                   to authenticated;
+grant execute on function public.admin_paises()                    to authenticated;
 grant execute on function public.admin_red()                       to authenticated;
 grant execute on function public.admin_desbloquear(text, text)     to authenticated;
 grant execute on function public.admin_consola(text)               to authenticated;

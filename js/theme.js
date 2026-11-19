@@ -32,7 +32,10 @@
     try { localStorage.setItem(KEY, theme); } catch (e) { /* sin almacenamiento */ }
     apply();
     aplicarAcento(leerAcento());
+    avisar();
   }
+
+  function avisar() { try { window.dispatchEvent(new Event("prefs-cambio")); } catch (e) { /* nada */ } }
 
   if (mq && mq.addEventListener) mq.addEventListener("change", function () { apply(); aplicarAcento(leerAcento()); });
 
@@ -106,6 +109,7 @@
       if (a) localStorage.setItem(KEY_ACENTO, JSON.stringify(a)); else localStorage.removeItem(KEY_ACENTO);
     } catch (e) { /* sin almacenamiento */ }
     aplicarAcento(leerAcento());
+    avisar();
   }
 
   apply();

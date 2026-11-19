@@ -91,6 +91,28 @@
     "No se pudieron cargar las sesiones.": "Couldn't load the sessions.", "Sesión cerrada.": "Session closed.",
     "Se cerraron las demás sesiones.": "Other sessions were closed.", "Navegador desconocido": "Unknown browser", "Sistema desconocido": "Unknown system",
     "ahora": "just now", "Iniciada": "Started", "Última actividad": "Last activity", "Cuenta (menú)": "Account (menu)",
+    "Contraseñas": "Passwords", "Genera contraseñas seguras y mide la fuerza de las tuyas": "Generate strong passwords and check how strong yours are",
+    "Generador": "Generator", "Copiar": "Copy", "¡Copiada!": "Copied!", "Generar otra": "Generate another", "Longitud:": "Length:",
+    "Mayúsculas (A-Z)": "Uppercase (A-Z)", "Minúsculas (a-z)": "Lowercase (a-z)", "Números (0-9)": "Numbers (0-9)", "Símbolos (!@#$…)": "Symbols (!@#$…)",
+    "Evitar caracteres ambiguos (I l 1 O 0 o)": "Avoid ambiguous characters (I l 1 O 0 o)",
+    "Elige al menos un tipo de carácter.": "Choose at least one character type.",
+    "No se pudo copiar. Selecciónala y cópiala a mano.": "Couldn't copy. Select it and copy it by hand.",
+    "Se genera en tu dispositivo con el generador aleatorio del navegador. Nada se envía ni se guarda.": "It's generated on your device with the browser's random generator. Nothing is sent or saved.",
+    "Medidor de seguridad": "Strength meter", "Escribe una contraseña para medirla": "Type a password to measure it", "Contraseña a medir": "Password to measure",
+    "La contraseña que escribes aquí no sale de esta página.": "The password you type here never leaves this page.",
+    "Muy débil": "Very weak", "Débil": "Weak", "Media": "Fair", "Fuerte": "Strong", "Muy fuerte": "Very strong", "Fuerza de la contraseña": "Password strength",
+    "Repite muchos caracteres.": "It repeats many characters.", "Contiene una secuencia fácil (como abcd o 1234).": "It contains an easy sequence (like abcd or 1234).",
+    "Contiene una contraseña muy común.": "It contains a very common password.", "Solo tiene números.": "It only has numbers.", "Solo tiene letras.": "It only has letters.",
+    "Usa 12 caracteres o más.": "Use 12 characters or more.", "Mezcla mayúsculas, minúsculas, números y símbolos.": "Mix uppercase, lowercase, numbers and symbols.",
+    "Fondo de la página": "Page background", "Degradados, patrones o una imagen tuya": "Gradients, patterns or an image of your own",
+    "Restablecer a normal": "Reset to normal", "Elegir imagen…": "Choose image…", "Fondos": "Backgrounds",
+    "La imagen se guarda solo en este dispositivo; el resto de fondos viaja con tu cuenta.": "The image is saved only on this device; the other backgrounds travel with your account.",
+    "Normal": "Normal", "Atardecer": "Sunset", "Cuadrícula": "Grid", "Líneas": "Lines", "Puntos": "Dots", "Noche": "Night", "Mi imagen": "My image",
+    "La imagen es demasiado grande.": "The image is too large.", "La imagen es demasiado grande para guardarla en este navegador.": "The image is too large to save in this browser.",
+    "Preferencias de la cuenta": "Account preferences", "Sincronizar ahora": "Sync now", "Sincronizando…": "Syncing…",
+    "Inicia sesión para que tus preferencias viajen contigo": "Sign in so your preferences travel with you",
+    "Tu tema, color de acento, idioma y fondo se guardan en tu cuenta y se aplican en tus otros dispositivos": "Your theme, accent color, language and background are saved to your account and applied on your other devices",
+    "No se pudieron sincronizar. Se reintentará al cambiar algo": "Couldn't sync. It will retry when you change something",
     "Sistema": "System", "\"Sistema\" sigue el modo de tu dispositivo. Se guarda en este navegador": "\"System\" follows your device's mode. Saved in this browser",
     "Historial de inicios de sesión": "Sign-in history", "Tus últimos accesos e intentos fallidos": "Your latest sign-ins and failed attempts",
     "Inicio de sesión": "Sign-in", "Cuenta creada": "Account created", "Intento fallido": "Failed attempt",
@@ -177,7 +199,9 @@
   function poner(nuevo) {
     if (nuevo !== "es" && nuevo !== "en") return;
     try { localStorage.setItem(KEY, nuevo); } catch (e) { /* nada */ }
-    location.reload();
+    var ir = function () { location.reload(); };
+    var g = window.Preferencias && window.Preferencias.guardarYa ? window.Preferencias.guardarYa() : null;
+    if (g) Promise.race([g, new Promise(function (r) { setTimeout(r, 1500); })]).then(ir, ir); else ir();
   }
   window.I18n = { lang: lang, get: function () { return lang; }, set: poner, t: tr, locale: function () { return lang === "en" ? "en-US" : "es-ES"; } };
 })();

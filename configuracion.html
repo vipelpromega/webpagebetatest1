@@ -7,12 +7,14 @@
   <title>Configuración</title>
   <script src="js/theme.js"></script>
   <script src="js/i18n.js"></script>
+  <script src="js/fondo.js"></script>
   <script src="js/sidebar.js"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/auth.js"></script>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/auth.css">
   <link rel="stylesheet" href="css/motion.css">
+  <link rel="stylesheet" href="css/fondos.css">
   <link rel="stylesheet" href="css/configuracion.css">
 </head>
 <body>
@@ -29,6 +31,10 @@
     <a class="side-btn" data-acceso="miembro" href="temporizador.html" aria-label="Temporizador" data-tooltip="Temporizador">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
       <span class="label">Temporizador</span>
+    </a>
+    <a class="side-btn" href="contrasenas.html" aria-label="Contraseñas" data-tooltip="Contraseñas">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></svg>
+      <span class="label">Contraseñas</span>
     </a>
     <a class="side-btn bottom" href="configuracion.html" aria-label="Configuración" data-tooltip="Configuración" aria-current="page">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
@@ -95,6 +101,37 @@
                 </div>
                 <div class="acento-vista" id="acento-vista" aria-hidden="true"></div>
               </div>
+            </div>
+          </div>
+
+          <div class="setting-card fondo-card" id="fondo">
+            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></svg></span>
+            <div class="setting-text">
+              <div class="setting-title">Fondo de la página</div>
+              <div class="setting-desc">Degradados, patrones o una imagen tuya</div>
+            </div>
+            <div class="setting-control">
+              <button type="button" class="btn secondary" id="fondo-reset">Restablecer a normal</button>
+            </div>
+            <div class="fondo-cuerpo">
+              <div class="fondos" id="fondos" role="group" aria-label="Fondos"></div>
+              <div class="fondo-acciones">
+                <button type="button" class="btn secondary" id="fondo-subir">Elegir imagen…</button>
+                <input type="file" id="fondo-archivo" accept="image/png,image/jpeg,image/webp" hidden>
+                <p class="nota">La imagen se guarda solo en este dispositivo; el resto de fondos viaja con tu cuenta.</p>
+              </div>
+              <p class="f-error" id="fondo-msg" role="alert"></p>
+            </div>
+          </div>
+
+          <div class="setting-card">
+            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 0 1-.5-7.97A6 6 0 0 1 18 9a4.5 4.5 0 0 1 .5 9z"/><path d="M12 12v6M9.5 15.5L12 18l2.5-2.5"/></svg></span>
+            <div class="setting-text">
+              <div class="setting-title">Preferencias de la cuenta</div>
+              <div class="setting-desc" id="prefs-estado">Inicia sesión para que tus preferencias viajen contigo</div>
+            </div>
+            <div class="setting-control">
+              <button type="button" class="btn secondary" id="prefs-ahora" hidden>Sincronizar ahora</button>
             </div>
           </div>
 
@@ -249,6 +286,7 @@
 
   </div>
 
+  <script src="js/preferencias.js"></script>
   <script src="js/configuracion.js"></script>
 </body>
 </html>

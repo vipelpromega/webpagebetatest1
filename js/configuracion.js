@@ -89,6 +89,84 @@
   });
   pintarAcento();
 
+
+  // ---------- Fondo ----------
+  const NOMBRES_FONDO = { ninguno: "Normal", aurora: "Aurora", atardecer: "Atardecer", oceano: "Océano", bosque: "Bosque", noche: "Noche", puntos: "Puntos", cuadricula: "Cuadrícula", diagonal: "Líneas" };
+  const fondosCaja = document.getElementById("fondos");
+  const fondoMsg = document.getElementById("fondo-msg");
+  const opciones = [];
+  function crearOpcion(id, etiqueta) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "fondo-op"; b.dataset.fondoId = id; b.setAttribute("aria-pressed", "false");
+    const v = document.createElement("span"); v.className = "fondo-vista" + (id === "ninguno" ? " fondo-sin-vista" : "");
+    if (id === "ninguno") v.textContent = "—"; else v.setAttribute("data-fondo-vista", id);
+    const t = document.createElement("span"); t.textContent = etiqueta;
+    b.append(v, t);
+    b.addEventListener("click", () => { fondoMsg.textContent = ""; Fondo.set(id); pintarFondo(); });
+    fondosCaja.appendChild(b); opciones.push(b);
+    return b;
+  }
+  window.Fondo.PRESETS.forEach((id) => crearOpcion(id, NOMBRES_FONDO[id]));
+  const opImg = crearOpcion("imagen", "Mi imagen");
+  function pintarFondo() {
+    const a = Fondo.get();
+    opciones.forEach((b) => { const s = b.dataset.fondoId === a; b.classList.toggle("selected", s); b.setAttribute("aria-pressed", String(s)); });
+    opImg.hidden = !Fondo.hayImagen();
+    document.getElementById("fondo-reset").disabled = a === "ninguno" && !Fondo.hayImagen();
+  }
+  document.getElementById("fondo-reset").addEventListener("click", () => { fondoMsg.textContent = ""; Fondo.restablecer(); pintarFondo(); });
+  const fondoArchivo = document.getElementById("fondo-archivo");
+  document.getElementById("fondo-subir").addEventListener("click", () => fondoArchivo.click());
+  // Reduce la imagen para que quepa en el navegador (máx. 1600 px, JPEG)
+  function reducir(archivo) {
+    return new Promise((ok, mal) => {
+      if (!/^image\/(png|jpeg|webp)$/.test(archivo.type)) { mal(new Error("tipo")); return; }
+      const lector = new FileReader();
+      lector.onerror = () => mal(new Error("lectura"));
+      lector.onload = () => {
+        const img = new Image();
+        img.onerror = () => mal(new Error("imagen"));
+        img.onload = () => {
+          const esc = Math.min(1, 1600 / Math.max(img.width, img.height));
+          const c = document.createElement("canvas");
+          c.width = Math.max(1, Math.round(img.width * esc)); c.height = Math.max(1, Math.round(img.height * esc));
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          let q = 0.82, url = c.toDataURL("image/jpeg", q);
+          while (url.length > 1200000 && q > 0.4) { q -= 0.1; url = c.toDataURL("image/jpeg", q); }
+          url.length > 1200000 ? mal(new Error("grande")) : ok(url);
+        };
+        img.src = lector.result;
+      };
+      lector.readAsDataURL(archivo);
+    });
+  }
+  fondoArchivo.addEventListener("change", async () => {
+    const f = fondoArchivo.files && fondoArchivo.files[0];
+    fondoArchivo.value = "";
+    if (!f) return;
+    fondoMsg.textContent = "";
+    try {
+      const url = await reducir(f);
+      if (!Fondo.setImagen(url)) fondoMsg.textContent = "La imagen es demasiado grande para guardarla en este navegador.";
+    } catch (e) { fondoMsg.textContent = e.message === "grande" ? "La imagen es demasiado grande." : "Elige una imagen PNG, JPG o WebP."; }
+    pintarFondo();
+  });
+  pintarFondo();
+
+  // ---------- Preferencias de la cuenta ----------
+  const prefsEstado = document.getElementById("prefs-estado");
+  const prefsAhora = document.getElementById("prefs-ahora");
+  const TEXTOS_PREFS = {
+    "sin-cuenta": "Inicia sesión para que tus preferencias viajen contigo",
+    guardando: "Sincronizando…",
+    guardado: "Tu tema, color de acento, idioma y fondo se guardan en tu cuenta y se aplican en tus otros dispositivos",
+    error: "No se pudieron sincronizar. Se reintentará al cambiar algo"
+  };
+  if (window.Preferencias) {
+    window.Preferencias.alCambiar((e) => { prefsEstado.textContent = TEXTOS_PREFS[e] || TEXTOS_PREFS["sin-cuenta"]; prefsAhora.hidden = e === "sin-cuenta"; });
+    prefsAhora.addEventListener("click", () => window.Preferencias.guardarYa());
+  }
+
   // ---------- Subsecciones (Apariencia / Cuenta) ----------
   const tabs = Array.from(document.querySelectorAll("[data-tab]"));
   function mostrarTab(nombre, enfocar) {

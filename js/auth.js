@@ -388,7 +388,25 @@
     });
   }
 
+  // Preferencias de la cuenta (tema, acento, idioma, fondo)
+  function preferenciasDeCuenta() {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
+    return rpc("mis_preferencias", { p_token: s.token }).then(function (r) {
+      return r.ok ? { ok: true, preferencias: r.preferencias || {} } : { ok: false, error: r.error || "error" };
+    });
+  }
+  function guardarPreferenciasDeCuenta(prefs) {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
+    return rpc("guardar_preferencias", { p_token: s.token, p_prefs: prefs }).then(function (r) {
+      return r.ok ? { ok: true, preferencias: r.preferencias || {} } : { ok: false, error: r.error || "error" };
+    });
+  }
+
   window.Auth = {
+    preferenciasDeCuenta: preferenciasDeCuenta,
+    guardarPreferenciasDeCuenta: guardarPreferenciasDeCuenta,
     historialDeAcceso: historialDeAcceso,
     sesionesActivas: sesionesActivas,
     cerrarSesionPorId: cerrarSesionPorId,
