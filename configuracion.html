@@ -12,6 +12,7 @@
   <script src="js/supabase-config.js"></script>
   <script src="js/fuerza.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/presencia.js"></script>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/auth.css">
   <link rel="stylesheet" href="css/motion.css">
@@ -49,6 +50,7 @@
       <div class="subnav" role="tablist" aria-label="Secciones de configuración">
         <button type="button" class="tab" role="tab" id="tab-apariencia" aria-controls="panel-apariencia" aria-selected="true" data-tab="apariencia">Apariencia</button>
         <button type="button" class="tab" role="tab" id="tab-cuenta" aria-controls="panel-cuenta" aria-selected="false" tabindex="-1" data-tab="cuenta">Cuenta</button>
+        <button type="button" class="tab" role="tab" id="tab-visibilidad" aria-controls="panel-visibilidad" aria-selected="false" tabindex="-1" data-tab="visibilidad">Visibilidad</button>
       </div>
 
       <div class="subpanel" id="panel-apariencia" role="tabpanel" aria-labelledby="tab-apariencia">
@@ -119,14 +121,6 @@
                 <p class="nota">La imagen se guarda solo en este dispositivo; el resto de fondos viaja con tu cuenta.</p>
               </div>
               <p class="f-error" id="fondo-msg" role="alert"></p>
-            </div>
-          </div>
-
-          <div class="setting-card">
-            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 0 1-.5-7.97A6 6 0 0 1 18 9a4.5 4.5 0 0 1 .5 9z"/><path d="M12 12v6M9.5 15.5L12 18l2.5-2.5"/></svg></span>
-            <div class="setting-text">
-              <div class="setting-title">Preferencias de la cuenta</div>
-              <div class="setting-desc" id="prefs-estado">Inicia sesión para que tus preferencias viajen contigo</div>
             </div>
           </div>
 
@@ -276,6 +270,39 @@
         </div>
       </section>
 
+      </div>
+      <div class="subpanel" id="panel-visibilidad" role="tabpanel" aria-labelledby="tab-visibilidad" hidden>
+      <section class="group">
+        <h2 class="group-title">Visibilidad</h2>
+        <div class="settings" id="vis-miembro" hidden>
+          <div class="setting-card vis-card">
+            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
+            <div class="setting-text">
+              <div class="setting-title">¿Quién puede ver tu estado?</div>
+              <div class="setting-desc">Tu estado indica si estás en línea o desconectado (pronto, más). Se guarda solo al elegir.</div>
+            </div>
+            <div class="vis-opciones" role="radiogroup" aria-label="¿Quién puede ver tu estado?">
+              <label class="vis-op"><input type="radio" name="visibilidad" value="todos"><span class="vis-radio" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Todos</span><span class="vis-desc">Todos los usuarios registrados podrán ver tu estado (En línea / Desconectado).</span></span></label>
+              <label class="vis-op"><input type="radio" name="visibilidad" value="amigos"><span class="vis-radio" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Amigos</span><span class="vis-desc">Por ahora esta opción no hace nada.</span></span></label>
+              <label class="vis-op"><input type="radio" name="visibilidad" value="mejores_amigos"><span class="vis-radio" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Mejores amigos</span><span class="vis-desc">Por ahora esta opción no hace nada.</span></span></label>
+              <label class="vis-op"><input type="radio" name="visibilidad" value="seguidos"><span class="vis-radio" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Personas que sigo</span><span class="vis-desc">Por ahora esta opción no hace nada.</span></span></label>
+              <label class="vis-op"><input type="radio" name="visibilidad" value="seguidores"><span class="vis-radio" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Seguidores</span><span class="vis-desc">Por ahora esta opción no hace nada.</span></span></label>
+              <label class="vis-op"><input type="radio" name="visibilidad" value="nadie"><span class="vis-radio" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Nadie</span><span class="vis-desc">Nadie podrá ver tu estado.</span></span></label>
+            </div>
+            <label class="vis-invitados" id="vis-invitados-caja" hidden><input type="checkbox" id="vis-invitados"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Visible también para los invitados</span><span class="vis-desc">Las personas sin cuenta que entren como invitados también verán tu foto, nombre y estado.</span></span></label>
+            <p class="f-error vis-msg" id="vis-msg" role="status"></p>
+          </div>
+        </div>
+        <div class="settings" id="vis-invitado" hidden>
+          <div class="setting-card">
+            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg></span>
+            <div class="setting-text">
+              <div class="setting-title">Inicia sesión para configurar tu visibilidad</div>
+              <div class="setting-desc">Como invitado no tienes un estado que mostrar</div>
+            </div>
+          </div>
+        </div>
+      </section>
       </div>
     </main>
 

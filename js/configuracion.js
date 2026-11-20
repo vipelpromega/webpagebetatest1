@@ -91,7 +91,7 @@
 
 
   // ---------- Fondo ----------
-  const NOMBRES_FONDO = { ninguno: "Normal", aurora: "Aurora", atardecer: "Atardecer", oceano: "Océano", bosque: "Bosque", noche: "Noche", puntos: "Puntos", cuadricula: "Cuadrícula", diagonal: "Líneas" };
+  const NOMBRES_FONDO = { ninguno: "Normal", aurora: "Aurora", atardecer: "Atardecer", oceano: "Océano", bosque: "Bosque", noche: "Noche" };
   const fondosCaja = document.getElementById("fondos");
   const fondoMsg = document.getElementById("fondo-msg");
   const opciones = [];
@@ -153,18 +153,6 @@
   });
   pintarFondo();
 
-  // ---------- Preferencias de la cuenta ----------
-  const prefsEstado = document.getElementById("prefs-estado");
-  const TEXTOS_PREFS = {
-    "sin-cuenta": "Inicia sesión para que tus preferencias viajen contigo",
-    guardando: "Sincronizando…",
-    guardado: "Se guardan solas en tu cuenta y se aplican en tus otros dispositivos: tema, color de acento, idioma y fondo",
-    error: "No se pudieron sincronizar. Se reintentará al cambiar algo"
-  };
-  if (window.Preferencias) {
-    window.Preferencias.alCambiar((e) => { prefsEstado.textContent = TEXTOS_PREFS[e] || TEXTOS_PREFS["sin-cuenta"]; });
-  }
-
   // ---------- Subsecciones (Apariencia / Cuenta) ----------
   const tabs = Array.from(document.querySelectorAll("[data-tab]"));
   function mostrarTab(nombre, enfocar) {
@@ -192,11 +180,49 @@
   function segunHash() {
     const hash = location.hash.replace("#", "");
     if (hash === "cuenta" || hash === "foto") mostrarTab("cuenta");
+    else if (hash === "visibilidad") mostrarTab("visibilidad");
     else if (hash === "apariencia") mostrarTab("apariencia");
     if (hash === "foto") setTimeout(() => { const f = document.getElementById("foto"); if (f) f.scrollIntoView({ block: "center" }); }, 50);
   }
   segunHash();
   window.addEventListener("hashchange", segunHash);
+
+
+  // ---------- Visibilidad del estado (se guarda sola al elegir) ----------
+  (function () {
+    const A = window.Auth;
+    const bloque = document.getElementById("vis-miembro"), invitado = document.getElementById("vis-invitado");
+    if (!A || !bloque) return;
+    const st = A.estado();
+    if (st !== "usuario") { invitado.hidden = false; return; }
+    bloque.hidden = false;
+    const radios = Array.from(document.querySelectorAll('input[name="visibilidad"]'));
+    const caja = document.getElementById("vis-invitados-caja"), chk = document.getElementById("vis-invitados"), vmsg = document.getElementById("vis-msg");
+    let modo = "todos", cargado = false, ocupado = false, pendiente = false;
+    function pintar() {
+      radios.forEach((r) => { r.checked = r.value === modo; });
+      caja.hidden = modo !== "todos";
+    }
+    async function guardar() {
+      if (!cargado) return;
+      if (ocupado) { pendiente = true; return; }
+      ocupado = true; vmsg.textContent = "";
+      const r = await A.guardarVisibilidad(modo, modo === "todos" && chk.checked);
+      ocupado = false;
+      if (!r.ok) vmsg.textContent = "No se pudo guardar. Inténtalo de nuevo.";
+      if (pendiente) { pendiente = false; guardar(); }
+    }
+    radios.forEach((r) => r.addEventListener("change", () => { if (!r.checked) return; modo = r.value; pintar(); guardar(); }));
+    chk.addEventListener("change", guardar);
+    radios.forEach((r) => { r.disabled = true; }); chk.disabled = true;
+    A.miVisibilidad().then((r) => {
+      if (r.ok) { modo = r.visibilidad; chk.checked = r.invitados; cargado = true; }
+      else vmsg.textContent = "No se pudo cargar tu visibilidad.";
+      radios.forEach((x) => { x.disabled = !cargado; }); chk.disabled = !cargado;
+      pintar();
+    });
+    pintar();
+  })();
 
   // ---------- Cuenta ----------
   const Auth = window.Auth;

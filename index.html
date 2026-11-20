@@ -12,6 +12,7 @@
   <script src="js/supabase-config.js"></script>
   <script src="js/fuerza.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/presencia.js"></script>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/auth.css">
   <link rel="stylesheet" href="css/motion.css">
@@ -87,6 +88,13 @@
           <p class="nota">Datos del clima: Open-Meteo</p>
         </section>
       </div>
+
+      <section class="card usuarios-card" aria-labelledby="usuarios-t">
+        <h2 class="card-t" id="usuarios-t">Usuarios</h2>
+        <p class="nota" id="usuarios-resumen"></p>
+        <ul class="usuarios-lista" id="usuarios-lista"></ul>
+        <p class="nota" id="usuarios-vacio" hidden></p>
+      </section>
     </main>
 
   </div>

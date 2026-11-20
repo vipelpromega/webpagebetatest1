@@ -620,7 +620,12 @@ declare v_uid uuid;
 begin
   select usuario_id into v_uid from public.sesiones where token = privado.hash_texto(coalesce(p_token, ''));
   delete from public.sesiones where token = privado.hash_texto(coalesce(p_token, ''));
-  if v_uid is not null then perform privado.anotar(v_uid, 'cierre_sesion'); end if;
+  if v_uid is not null then
+    perform privado.anotar(v_uid, 'cierre_sesion');
+    if not exists (select 1 from public.sesiones where usuario_id = v_uid) then
+      update public.usuarios set visto = null where id = v_uid;
+    end if;
+  end if;
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -669,7 +674,7 @@ begin
   -- Solo se guardan claves y valores conocidos
   if p_prefs ->> 'tema' in ('auto', 'light', 'dark', 'oled') then r := r || jsonb_build_object('tema', p_prefs ->> 'tema'); end if;
   if p_prefs ->> 'idioma' in ('es', 'en') then r := r || jsonb_build_object('idioma', p_prefs ->> 'idioma'); end if;
-  if p_prefs ->> 'fondo' in ('ninguno', 'aurora', 'atardecer', 'oceano', 'bosque', 'noche', 'puntos', 'cuadricula', 'diagonal') then
+  if p_prefs ->> 'fondo' in ('ninguno', 'aurora', 'atardecer', 'oceano', 'bosque', 'noche') then
     r := r || jsonb_build_object('fondo', p_prefs ->> 'fondo');
   end if;
   if p_prefs ? 'acento' then
@@ -694,6 +699,109 @@ begin
   end if;
   update public.usuarios set preferencias = m where id = v.id;
   return jsonb_build_object('ok', true, 'preferencias', m);
+end $$;
+
+
+-- 6a2) Presencia (online/offline) y visibilidad del estado
+alter table public.usuarios add column if not exists visibilidad text not null default 'todos';
+alter table public.usuarios drop constraint if exists usuarios_visibilidad_check;
+alter table public.usuarios add constraint usuarios_visibilidad_check
+  check (visibilidad in ('todos', 'amigos', 'mejores_amigos', 'seguidos', 'seguidores', 'nadie'));
+alter table public.usuarios add column if not exists visible_invitados boolean not null default false;
+alter table public.usuarios add column if not exists visto timestamptz;
+
+-- Latido: la página lo envía cada ~45 s mientras está abierta y visible. Online = latido en los últimos 100 s.
+create or replace function public.latido(p_token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  update public.usuarios set visto = now() where id = v.id and (visto is null or visto < now() - interval '15 seconds');
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function public.mi_visibilidad(p_token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  return jsonb_build_object('ok', true, 'visibilidad', v.visibilidad, 'invitados', v.visible_invitados);
+end $$;
+
+create or replace function public.guardar_visibilidad(p_token text, p_modo text, p_invitados boolean)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  if p_modo is null or p_modo not in ('todos', 'amigos', 'mejores_amigos', 'seguidos', 'seguidores', 'nadie') then
+    return jsonb_build_object('ok', false, 'error', 'visibilidad');
+  end if;
+  update public.usuarios set visibilidad = p_modo, visible_invitados = coalesce(p_invitados, false) where id = v.id;
+  return jsonb_build_object('ok', true, 'visibilidad', p_modo, 'invitados', coalesce(p_invitados, false));
+end $$;
+
+-- Usuarios registrados con foto, nombre y estado.
+--  · Con sesión: ve a todos; el estado solo de quien eligió «Todos» (y el suyo siempre).
+--  · Invitado (sin token): ve solo a quien eligió «Todos» + «visible para invitados».
+-- Las demás opciones (Amigos, Mejores amigos, Personas que sigo, Seguidores) aún no hacen nada: no muestran el estado.
+create or replace function public.lista_usuarios(p_token text default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v public.usuarios;
+  v_miembro boolean;
+begin
+  v := privado.usuario_de_token(p_token);
+  v_miembro := v.id is not null;
+  if not v_miembro and p_token is not null and p_token <> '' then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  return jsonb_build_object('ok', true, 'miembro', v_miembro, 'usuarios', coalesce((
+    select jsonb_agg(x) from (
+      select u.id, u.nombre, u.avatar,
+             case when v_miembro then u.usuario end as usuario,
+             case
+               when (v_miembro and u.id = v.id) or (u.visibilidad = 'todos' and (v_miembro or u.visible_invitados))
+                 then case when u.visto > now() - interval '100 seconds' then 'online' else 'offline' end
+             end as estado,
+             (v_miembro and u.id = v.id) as yo
+        from public.usuarios u
+       where not u.suspendida
+         and (v_miembro or (u.visibilidad = 'todos' and u.visible_invitados))
+       order by (u.visto > now() - interval '100 seconds' and (u.visibilidad = 'todos' or (v_miembro and u.id = v.id))) desc nulls last,
+                lower(u.nombre), u.id
+       limit 60) x), '[]'::jsonb));
+end $$;
+
+-- Solo los estados (ligero, para refrescar sin volver a bajar las fotos)
+create or replace function public.estados_usuarios(p_token text default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v public.usuarios;
+  v_miembro boolean;
+begin
+  v := privado.usuario_de_token(p_token);
+  v_miembro := v.id is not null;
+  if not v_miembro and p_token is not null and p_token <> '' then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  return jsonb_build_object('ok', true, 'estados', coalesce((
+    select jsonb_agg(jsonb_build_object('id', u.id,
+             'estado', case
+               when (v_miembro and u.id = v.id) or (u.visibilidad = 'todos' and (v_miembro or u.visible_invitados))
+                 then case when u.visto > now() - interval '100 seconds' then 'online' else 'offline' end
+             end))
+      from (select * from public.usuarios u0
+             where not u0.suspendida and (v_miembro or (u0.visibilidad = 'todos' and u0.visible_invitados))
+             order by lower(u0.nombre), u0.id limit 60) u), '[]'::jsonb));
 end $$;
 
 -- 6b) Sesiones activas de la cuenta
@@ -1033,6 +1141,34 @@ begin
   return jsonb_build_object('ok', true, 'borrados', n);
 end $$;
 
+
+-- Borrar registros de la sección «Registros» (exige la contraseña maestra; el propio borrado queda anotado)
+create or replace function public.admin_borrar_registros(p_ids bigint[], p_todos boolean, p_maestra text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_admin uuid := privado.admin_id();
+  v_err   jsonb;
+  n       int := 0;
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  v_err := privado.verificar_maestra(v_admin, p_maestra);
+  if v_err is not null then
+    return v_err;
+  end if;
+  if coalesce(p_todos, false) then
+    delete from public.auditoria;
+  elsif p_ids is not null and cardinality(p_ids) > 0 and cardinality(p_ids) <= 1000 then
+    delete from public.auditoria where id = any (p_ids);
+  else
+    return jsonb_build_object('ok', false, 'error', 'nada_que_borrar');
+  end if;
+  get diagnostics n = row_count;
+  perform privado.auditar(v_admin, 'borrar_registros', jsonb_build_object('cantidad', n, 'todos', coalesce(p_todos, false)));
+  return jsonb_build_object('ok', true, 'borrados', n);
+end $$;
+
 -- Países desde donde se accede (según el historial de ingresos)
 create or replace function public.admin_paises()
 returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -1231,6 +1367,12 @@ revoke all on function public.cambiar_nombre(text, text)           from public, 
 revoke all on function public.salir(text)                          from public, anon, authenticated;
 revoke all on function public.mis_sesiones(text)                   from public, anon, authenticated;
 revoke all on function public.mi_historial(text)                   from public, anon, authenticated;
+revoke all on function public.latido(text)                          from public, anon, authenticated;
+revoke all on function public.mi_visibilidad(text)                  from public, anon, authenticated;
+revoke all on function public.guardar_visibilidad(text, text, boolean) from public, anon, authenticated;
+revoke all on function public.lista_usuarios(text)                  from public, anon, authenticated;
+revoke all on function public.estados_usuarios(text)                from public, anon, authenticated;
+revoke all on function public.admin_borrar_registros(bigint[], boolean, text) from public, anon, authenticated;
 revoke all on function public.mis_preferencias(text)               from public, anon, authenticated;
 revoke all on function public.guardar_preferencias(text, jsonb)    from public, anon, authenticated;
 revoke all on function public.admin_paises()                       from public, anon, authenticated;
@@ -1250,6 +1392,12 @@ grant execute on function public.cambiar_nombre(text, text)        to anon, auth
 grant execute on function public.salir(text)                       to anon, authenticated;
 grant execute on function public.mis_sesiones(text)                to anon, authenticated;
 grant execute on function public.mi_historial(text)                to anon, authenticated;
+grant execute on function public.latido(text)                       to anon, authenticated;
+grant execute on function public.mi_visibilidad(text)               to anon, authenticated;
+grant execute on function public.guardar_visibilidad(text, text, boolean) to anon, authenticated;
+grant execute on function public.lista_usuarios(text)               to anon, authenticated;
+grant execute on function public.estados_usuarios(text)             to anon, authenticated;
+grant execute on function public.admin_borrar_registros(bigint[], boolean, text) to authenticated;
 grant execute on function public.mis_preferencias(text)            to anon, authenticated;
 grant execute on function public.guardar_preferencias(text, jsonb) to anon, authenticated;
 grant execute on function public.cerrar_sesion(text, uuid)         to anon, authenticated;

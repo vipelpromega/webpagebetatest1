@@ -116,4 +116,82 @@
   var g0 = guardado();
   if (g0) cargar(g0); else aviso("Elige una ubicación para ver el clima.");
   setInterval(function () { var g = guardado(); if (g && !document.hidden) cargar(g); }, 10 * 60 * 1000);
+
+  /* ---------- Usuarios registrados (foto, nombre y estado) ---------- */
+  (function () {
+    var lista = $("usuarios-lista"), vacio = $("usuarios-vacio"), resumen = $("usuarios-resumen");
+    if (!lista || !window.Auth) return;
+    var t = function (x) { return window.I18n && window.I18n.t ? window.I18n.t(x) : x; };
+    var filas = {}, ids = "", temporizador = null;
+
+    function avatar(u) {
+      var a = document.createElement("span"); a.className = "u-avatar"; a.setAttribute("aria-hidden", "true");
+      if (typeof u.avatar === "string" && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(u.avatar)) {
+        var img = document.createElement("img"); img.alt = ""; img.src = u.avatar; img.draggable = false; a.appendChild(img);
+      } else {
+        a.textContent = (u.nombre || "?").trim().charAt(0).toUpperCase() || "?";
+        a.classList.add("inicial");
+      }
+      return a;
+    }
+    function pintarEstado(fila, estado) {
+      var punto = fila.querySelector(".u-punto"), txt = fila.querySelector(".u-estado");
+      var on = estado === "online";
+      fila.classList.toggle("online", on);
+      if (punto) punto.hidden = !on;
+      if (txt) txt.textContent = on ? t("En línea") : "";
+      fila.dataset.estado = estado || "";
+    }
+    function contar() {
+      var n = Object.keys(filas).length, on = lista.querySelectorAll(".online").length;
+      resumen.textContent = n + (n === 1 ? " " + t("usuario") : " " + t("usuarios")) + (lista.querySelector("[data-estado]:not([data-estado=''])") ? " · " + on + " " + t("en línea") : "");
+    }
+    function construir(r) {
+      while (lista.firstChild) lista.removeChild(lista.firstChild);
+      filas = {};
+      r.usuarios.forEach(function (u) {
+        var li = document.createElement("li"); li.className = "u-fila" + (u.yo ? " yo" : "");
+        var caja = document.createElement("span"); caja.className = "u-foto";
+        caja.appendChild(avatar(u));
+        var punto = document.createElement("span"); punto.className = "u-punto"; punto.hidden = true; punto.setAttribute("role", "img"); punto.setAttribute("aria-label", t("En línea"));
+        caja.appendChild(punto);
+        var datos = document.createElement("span"); datos.className = "u-datos";
+        var nom = document.createElement("span"); nom.className = "u-nombre"; nom.textContent = u.nombre + (u.yo ? " (" + t("tú") + ")" : "");
+        var sub = document.createElement("span"); sub.className = "u-estado";
+        datos.appendChild(nom); datos.appendChild(sub);
+        li.appendChild(caja); li.appendChild(datos);
+        lista.appendChild(li); filas[u.id] = li;
+        pintarEstado(li, u.estado);
+      });
+      ids = r.usuarios.map(function (u) { return u.id; }).join(",");
+      vacio.hidden = r.usuarios.length > 0;
+      if (!r.usuarios.length) vacio.textContent = r.miembro ? t("Todavía no hay usuarios registrados.") : t("Nadie ha activado ser visible para invitados.");
+      contar();
+    }
+    function cargar() {
+      return window.Auth.listaUsuarios().then(function (r) {
+        if (!r.ok) { resumen.textContent = ""; vacio.hidden = false; vacio.textContent = t("No se pudo cargar la lista de usuarios."); return; }
+        construir(r);
+      });
+    }
+    function refrescar() {
+      if (document.hidden) return;
+      window.Auth.estadosUsuarios().then(function (r) {
+        if (!r.ok) return;
+        var nuevos = r.estados.map(function (x) { return x.id; }).join(",");
+        // Si cambió quién aparece en la lista (altas, bajas o cambios de visibilidad), se vuelve a cargar completa
+        var mismos = nuevos.split(",").sort().join(",") === ids.split(",").sort().join(",");
+        if (!mismos) { cargar(); return; }
+        r.estados.forEach(function (x) { if (filas[x.id]) pintarEstado(filas[x.id], x.estado); });
+        contar();
+      });
+    }
+    document.addEventListener("DOMContentLoaded", function () {
+      var st = window.Auth.estado();
+      if (!st) return;
+      cargar();
+      temporizador = setInterval(refrescar, 30000);
+      document.addEventListener("visibilitychange", function () { if (!document.hidden) refrescar(); });
+    });
+  })();
 })();

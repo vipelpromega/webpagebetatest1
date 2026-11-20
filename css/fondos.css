@@ -16,19 +16,6 @@ html[data-fondo="bosque"] body, [data-fondo-vista="bosque"] {
 html[data-fondo="noche"] body, [data-fondo-vista="noche"] {
   background-image: radial-gradient(1000px 700px at 80% 0%, rgba(76, 90, 190, .42), transparent 70%), linear-gradient(180deg, rgba(10, 14, 40, .5), rgba(27, 42, 78, .35));
 }
-html[data-fondo="puntos"] body, [data-fondo-vista="puntos"] {
-  background-image: radial-gradient(color-mix(in srgb, var(--text) 16%, transparent) 1.2px, transparent 1.5px);
-  background-size: 22px 22px;
-}
-html[data-fondo="cuadricula"] body, [data-fondo-vista="cuadricula"] {
-  background-image:
-    linear-gradient(color-mix(in srgb, var(--text) 8%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--text) 8%, transparent) 1px, transparent 1px);
-  background-size: 32px 32px;
-}
-html[data-fondo="diagonal"] body, [data-fondo-vista="diagonal"] {
-  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--text) 7%, transparent) 0 1px, transparent 1px 14px);
-}
 html[data-fondo="imagen"] body, [data-fondo-vista="imagen"] {
   background-image:
     linear-gradient(color-mix(in srgb, var(--bg) 55%, transparent), color-mix(in srgb, var(--bg) 55%, transparent)),

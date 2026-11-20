@@ -122,6 +122,17 @@
     "Inicio de sesión": "Sign-in", "Cuenta creada": "Account created", "Intento fallido": "Failed attempt",
     "Intento con cuenta suspendida": "Attempt with suspended account", "No se pudo cargar el historial.": "Couldn't load the history.",
     "Tu cuenta está suspendida. Contacta a un administrador.": "Your account is suspended. Contact an administrator.",
+    "Usuarios": "Users", "usuario": "user", "usuarios": "users", "en línea": "online", "En línea": "Online", "tú": "you", "Desconectado": "Offline",
+    "Todavía no hay usuarios registrados.": "There are no registered users yet.", "Nadie ha activado ser visible para invitados.": "Nobody has made themselves visible to guests.",
+    "No se pudo cargar la lista de usuarios.": "Couldn't load the user list.",
+    "Visibilidad": "Visibility", "¿Quién puede ver tu estado?": "Who can see your status?",
+    "Tu estado indica si estás en línea o desconectado (pronto, más). Se guarda solo al elegir.": "Your status shows whether you're online or offline (more soon). It saves automatically when you choose.",
+    "Todos": "Everyone", "Amigos": "Friends", "Mejores amigos": "Best friends", "Personas que sigo": "People I follow", "Seguidores": "Followers", "Nadie": "Nobody",
+    "Todos los usuarios registrados podrán ver tu estado (En línea / Desconectado).": "All registered users will be able to see your status (Online / Offline).",
+    "Por ahora esta opción no hace nada.": "This option does nothing for now.", "Nadie podrá ver tu estado.": "Nobody will be able to see your status.",
+    "Visible también para los invitados": "Also visible to guests", "Las personas sin cuenta que entren como invitados también verán tu foto, nombre y estado.": "People without an account who enter as guests will also see your photo, name and status.",
+    "Inicia sesión para configurar tu visibilidad": "Sign in to set your visibility", "Como invitado no tienes un estado que mostrar": "As a guest you have no status to show",
+    "No se pudo guardar. Inténtalo de nuevo.": "Couldn't save. Try again.", "No se pudo cargar tu visibilidad.": "Couldn't load your visibility.",
     "Cambiar foto de perfil": "Change profile photo", "Más secciones": "More sections"
   };
 

@@ -2,7 +2,7 @@
 (function () {
   var KEY = "fondo", KEY_IMG = "fondo-img";
   var root = document.documentElement;
-  var PRESETS = ["ninguno", "aurora", "atardecer", "oceano", "bosque", "noche", "puntos", "cuadricula", "diagonal"];
+  var PRESETS = ["ninguno", "aurora", "atardecer", "oceano", "bosque", "noche"];
 
   function imagen() {
     try { var v = localStorage.getItem(KEY_IMG); return /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(v || "") ? v : null; } catch (e) { return null; }

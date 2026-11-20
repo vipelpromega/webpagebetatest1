@@ -404,7 +404,45 @@
     });
   }
 
+  /* ---------- Presencia y visibilidad ---------- */
+  function latido() {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
+    return rpc("latido", { p_token: s.token });
+  }
+  function listaUsuarios() {
+    var s = leerSesion();
+    return rpc("lista_usuarios", { p_token: s ? s.token : null }).then(function (r) {
+      return r.ok ? { ok: true, miembro: !!r.miembro, usuarios: r.usuarios || [] } : { ok: false, error: r.error || "error" };
+    });
+  }
+  function estadosUsuarios() {
+    var s = leerSesion();
+    return rpc("estados_usuarios", { p_token: s ? s.token : null }).then(function (r) {
+      return r.ok ? { ok: true, estados: r.estados || [] } : { ok: false, error: r.error || "error" };
+    });
+  }
+  function miVisibilidad() {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
+    return rpc("mi_visibilidad", { p_token: s.token }).then(function (r) {
+      return r.ok ? { ok: true, visibilidad: r.visibilidad, invitados: !!r.invitados } : { ok: false, error: r.error || "error" };
+    });
+  }
+  function guardarVisibilidad(modo, invitados) {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
+    return rpc("guardar_visibilidad", { p_token: s.token, p_modo: modo, p_invitados: !!invitados }).then(function (r) {
+      return r.ok ? { ok: true, visibilidad: r.visibilidad, invitados: !!r.invitados } : { ok: false, error: r.error || "error" };
+    });
+  }
+
   window.Auth = {
+    latido: latido,
+    listaUsuarios: listaUsuarios,
+    estadosUsuarios: estadosUsuarios,
+    miVisibilidad: miVisibilidad,
+    guardarVisibilidad: guardarVisibilidad,
     preferenciasDeCuenta: preferenciasDeCuenta,
     guardarPreferenciasDeCuenta: guardarPreferenciasDeCuenta,
     historialDeAcceso: historialDeAcceso,
