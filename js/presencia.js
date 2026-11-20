@@ -1,9 +1,9 @@
 // Presencia: mientras la página está abierta y visible, avisa al servidor que estás en línea.
 (function () {
-  var PERIODO = 45000, ultimo = 0;
+  var PERIODO = 20000, ultimo = 0;
   function enviar() {
     if (!window.Auth || window.Auth.estado() !== "usuario" || document.hidden) return;
-    if (Date.now() - ultimo < 10000) return;
+    if (Date.now() - ultimo < 8000) return;
     ultimo = Date.now();
     window.Auth.latido();
   }

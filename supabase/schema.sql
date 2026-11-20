@@ -703,14 +703,25 @@ end $$;
 
 
 -- 6a2) Presencia (online/offline) y visibilidad del estado
-alter table public.usuarios add column if not exists visibilidad text not null default 'todos';
-alter table public.usuarios drop constraint if exists usuarios_visibilidad_check;
-alter table public.usuarios add constraint usuarios_visibilidad_check
-  check (visibilidad in ('todos', 'amigos', 'mejores_amigos', 'seguidos', 'seguidores', 'nadie'));
+-- Quién puede ver el estado: varias opciones a la vez (todos, amigos, mejores_amigos, seguidos, seguidores) o solo «nadie»
+alter table public.usuarios add column if not exists visibilidades text[] not null default array['todos'];
+do $$
+begin
+  -- Versión anterior: una sola opción en `visibilidad`; se pasa a la lista y se elimina la columna
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'usuarios' and column_name = 'visibilidad') then
+    update public.usuarios set visibilidades = array[visibilidad];
+    alter table public.usuarios drop constraint if exists usuarios_visibilidad_check;
+    alter table public.usuarios drop column visibilidad;
+  end if;
+end $$;
+alter table public.usuarios drop constraint if exists usuarios_visibilidades_check;
+alter table public.usuarios add constraint usuarios_visibilidades_check
+  check (cardinality(visibilidades) between 1 and 6
+         and visibilidades <@ array['todos', 'amigos', 'mejores_amigos', 'seguidos', 'seguidores', 'nadie']);
 alter table public.usuarios add column if not exists visible_invitados boolean not null default false;
 alter table public.usuarios add column if not exists visto timestamptz;
 
--- Latido: la página lo envía cada ~45 s mientras está abierta y visible. Online = latido en los últimos 100 s.
+-- Latido: la página lo envía cada 20 s mientras está abierta y visible. Online = latido en los últimos 45 s.
 create or replace function public.latido(p_token text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare v public.usuarios;
@@ -731,28 +742,39 @@ begin
   if v.id is null then
     return jsonb_build_object('ok', false, 'error', 'sesion');
   end if;
-  return jsonb_build_object('ok', true, 'visibilidad', v.visibilidad, 'invitados', v.visible_invitados);
+  return jsonb_build_object('ok', true, 'visibilidades', to_jsonb(v.visibilidades), 'invitados', v.visible_invitados);
 end $$;
 
-create or replace function public.guardar_visibilidad(p_token text, p_modo text, p_invitados boolean)
+drop function if exists public.guardar_visibilidad(text, text, boolean);
+create or replace function public.guardar_visibilidad(p_token text, p_modos text[], p_invitados boolean)
 returns jsonb language plpgsql security definer set search_path = '' as $$
-declare v public.usuarios;
+declare
+  v public.usuarios;
+  m text[];
 begin
   v := privado.usuario_de_token(p_token);
   if v.id is null then
     return jsonb_build_object('ok', false, 'error', 'sesion');
   end if;
-  if p_modo is null or p_modo not in ('todos', 'amigos', 'mejores_amigos', 'seguidos', 'seguidores', 'nadie') then
+  if p_modos is null or cardinality(p_modos) > 6
+     or not (p_modos <@ array['todos', 'amigos', 'mejores_amigos', 'seguidos', 'seguidores', 'nadie']) then
     return jsonb_build_object('ok', false, 'error', 'visibilidad');
   end if;
-  update public.usuarios set visibilidad = p_modo, visible_invitados = coalesce(p_invitados, false) where id = v.id;
-  return jsonb_build_object('ok', true, 'visibilidad', p_modo, 'invitados', coalesce(p_invitados, false));
+  select coalesce(array_agg(x order by x), '{}') into m from (select distinct unnest(p_modos) x) t;
+  -- «Nadie» es excluyente; sin ninguna opción equivale a «Nadie»
+  if 'nadie' = any (m) or cardinality(m) = 0 then m := array['nadie']; end if;
+  update public.usuarios
+     set visibilidades = m,
+         visible_invitados = ('todos' = any (m)) and coalesce(p_invitados, false)
+   where id = v.id;
+  return jsonb_build_object('ok', true, 'visibilidades', to_jsonb(m), 'invitados', ('todos' = any (m)) and coalesce(p_invitados, false));
 end $$;
 
--- Usuarios registrados con foto, nombre y estado.
---  · Con sesión: ve a todos; el estado solo de quien eligió «Todos» (y el suyo siempre).
---  · Invitado (sin token): ve solo a quien eligió «Todos» + «visible para invitados».
--- Las demás opciones (Amigos, Mejores amigos, Personas que sigo, Seguidores) aún no hacen nada: no muestran el estado.
+-- Usuarios registrados con foto, nombre y estado ('online' / 'offline').
+-- Quien no puede ver el estado de alguien lo ve siempre «offline» (no se revela nada):
+--  · Con sesión: el estado real solo de quien eligió «Todos» (y el propio siempre).
+--  · Invitado (sin token): el estado real solo de quien eligió «Todos» + «visible para invitados».
+-- Amigos, Mejores amigos, Personas que sigo y Seguidores aún no hacen nada: no muestran el estado.
 create or replace function public.lista_usuarios(p_token text default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -769,19 +791,20 @@ begin
       select u.id, u.nombre, u.avatar,
              case when v_miembro then u.usuario end as usuario,
              case
-               when (v_miembro and u.id = v.id) or (u.visibilidad = 'todos' and (v_miembro or u.visible_invitados))
-                 then case when u.visto > now() - interval '100 seconds' then 'online' else 'offline' end
+               when u.visto > now() - interval '45 seconds'
+                and ((v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados)))
+                 then 'online' else 'offline'
              end as estado,
              (v_miembro and u.id = v.id) as yo
         from public.usuarios u
        where not u.suspendida
-         and (v_miembro or (u.visibilidad = 'todos' and u.visible_invitados))
-       order by (u.visto > now() - interval '100 seconds' and (u.visibilidad = 'todos' or (v_miembro and u.id = v.id))) desc nulls last,
+       order by coalesce(u.visto > now() - interval '45 seconds'
+                 and ((v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados))), false) desc,
                 lower(u.nombre), u.id
        limit 60) x), '[]'::jsonb));
 end $$;
 
--- Solo los estados (ligero, para refrescar sin volver a bajar las fotos)
+-- Solo los estados (ligero, para refrescar a menudo sin volver a bajar las fotos)
 create or replace function public.estados_usuarios(p_token text default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -796,12 +819,11 @@ begin
   return jsonb_build_object('ok', true, 'estados', coalesce((
     select jsonb_agg(jsonb_build_object('id', u.id,
              'estado', case
-               when (v_miembro and u.id = v.id) or (u.visibilidad = 'todos' and (v_miembro or u.visible_invitados))
-                 then case when u.visto > now() - interval '100 seconds' then 'online' else 'offline' end
+               when u.visto > now() - interval '45 seconds'
+                and ((v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados)))
+                 then 'online' else 'offline'
              end))
-      from (select * from public.usuarios u0
-             where not u0.suspendida and (v_miembro or (u0.visibilidad = 'todos' and u0.visible_invitados))
-             order by lower(u0.nombre), u0.id limit 60) u), '[]'::jsonb));
+      from (select * from public.usuarios u0 where not u0.suspendida order by lower(u0.nombre), u0.id limit 60) u), '[]'::jsonb));
 end $$;
 
 -- 6b) Sesiones activas de la cuenta
@@ -1369,7 +1391,7 @@ revoke all on function public.mis_sesiones(text)                   from public, 
 revoke all on function public.mi_historial(text)                   from public, anon, authenticated;
 revoke all on function public.latido(text)                          from public, anon, authenticated;
 revoke all on function public.mi_visibilidad(text)                  from public, anon, authenticated;
-revoke all on function public.guardar_visibilidad(text, text, boolean) from public, anon, authenticated;
+revoke all on function public.guardar_visibilidad(text, text[], boolean) from public, anon, authenticated;
 revoke all on function public.lista_usuarios(text)                  from public, anon, authenticated;
 revoke all on function public.estados_usuarios(text)                from public, anon, authenticated;
 revoke all on function public.admin_borrar_registros(bigint[], boolean, text) from public, anon, authenticated;
@@ -1394,7 +1416,7 @@ grant execute on function public.mis_sesiones(text)                to anon, auth
 grant execute on function public.mi_historial(text)                to anon, authenticated;
 grant execute on function public.latido(text)                       to anon, authenticated;
 grant execute on function public.mi_visibilidad(text)               to anon, authenticated;
-grant execute on function public.guardar_visibilidad(text, text, boolean) to anon, authenticated;
+grant execute on function public.guardar_visibilidad(text, text[], boolean) to anon, authenticated;
 grant execute on function public.lista_usuarios(text)               to anon, authenticated;
 grant execute on function public.estados_usuarios(text)             to anon, authenticated;
 grant execute on function public.admin_borrar_registros(bigint[], boolean, text) to authenticated;

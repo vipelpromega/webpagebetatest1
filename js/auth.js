@@ -426,14 +426,14 @@
     var s = leerSesion();
     if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
     return rpc("mi_visibilidad", { p_token: s.token }).then(function (r) {
-      return r.ok ? { ok: true, visibilidad: r.visibilidad, invitados: !!r.invitados } : { ok: false, error: r.error || "error" };
+      return r.ok ? { ok: true, visibilidades: r.visibilidades || ["todos"], invitados: !!r.invitados } : { ok: false, error: r.error || "error" };
     });
   }
-  function guardarVisibilidad(modo, invitados) {
+  function guardarVisibilidad(modos, invitados) {
     var s = leerSesion();
     if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
-    return rpc("guardar_visibilidad", { p_token: s.token, p_modo: modo, p_invitados: !!invitados }).then(function (r) {
-      return r.ok ? { ok: true, visibilidad: r.visibilidad, invitados: !!r.invitados } : { ok: false, error: r.error || "error" };
+    return rpc("guardar_visibilidad", { p_token: s.token, p_modos: modos, p_invitados: !!invitados }).then(function (r) {
+      return r.ok ? { ok: true, visibilidades: r.visibilidades || [], invitados: !!r.invitados } : { ok: false, error: r.error || "error" };
     });
   }
 

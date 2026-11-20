@@ -126,7 +126,7 @@
     "Todavía no hay usuarios registrados.": "There are no registered users yet.", "Nadie ha activado ser visible para invitados.": "Nobody has made themselves visible to guests.",
     "No se pudo cargar la lista de usuarios.": "Couldn't load the user list.",
     "Visibilidad": "Visibility", "¿Quién puede ver tu estado?": "Who can see your status?",
-    "Tu estado indica si estás en línea o desconectado (pronto, más). Se guarda solo al elegir.": "Your status shows whether you're online or offline (more soon). It saves automatically when you choose.",
+    "Puedes elegir varias opciones. Tu estado indica si estás en línea o desconectado (pronto, más). Se guarda solo al elegir.": "You can choose several options. Your status shows whether you're online or offline (more soon). It saves automatically when you choose.",
     "Todos": "Everyone", "Amigos": "Friends", "Mejores amigos": "Best friends", "Personas que sigo": "People I follow", "Seguidores": "Followers", "Nadie": "Nobody",
     "Todos los usuarios registrados podrán ver tu estado (En línea / Desconectado).": "All registered users will be able to see your status (Online / Offline).",
     "Por ahora esta opción no hace nada.": "This option does nothing for now.", "Nadie podrá ver tu estado.": "Nobody will be able to see your status.",

@@ -190,7 +190,8 @@
       var st = window.Auth.estado();
       if (!st) return;
       cargar();
-      temporizador = setInterval(refrescar, 30000);
+      temporizador = setInterval(refrescar, 5000);
+      window.addEventListener("storage", function (e) { if (e.key === "vis-cambio") refrescar(); });
       document.addEventListener("visibilitychange", function () { if (!document.hidden) refrescar(); });
     });
   })();

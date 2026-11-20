@@ -173,16 +173,21 @@
 }
 .vis-op:hover, .vis-invitados:hover { background: var(--subtle-hover); }
 .vis-op input, .vis-invitados input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
-.vis-radio, .vis-check {
-  flex: none; width: 18px; height: 18px; margin-top: 1px; border: 2px solid var(--border-2, var(--muted)); background: var(--panel);
+.vis-check {
+  position: relative; flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: 5px;
+  border: 2px solid var(--border-2, var(--muted)); background: var(--panel);
   transition: border-color .12s, background .12s, box-shadow .12s;
 }
-.vis-radio { border-radius: 50%; }
-.vis-check { border-radius: 5px; }
-.vis-op input:checked + .vis-radio { border-color: var(--accent-bg); background: radial-gradient(circle, var(--accent-bg) 0 4px, var(--panel) 5px); }
-.vis-invitados input:checked + .vis-check { border-color: var(--accent-bg); background: var(--accent-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-6.5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat; }
-.vis-op:has(input:checked) { border-color: var(--accent-bg); }
-.vis-op input:focus-visible + .vis-radio, .vis-invitados input:focus-visible + .vis-check { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-bg) 40%, transparent); }
+/* La marca se dibuja con bordes (no con imagen) para que se vea con cualquier acento, también degradados */
+.vis-check::after {
+  content: ""; position: absolute; left: 4px; top: 0; width: 5px; height: 10px;
+  border: solid var(--on-accent, #fff); border-width: 0 2px 2px 0; transform: rotate(45deg) scale(.4); opacity: 0;
+  transition: opacity .12s, transform .15s var(--ease-out, ease);
+}
+.vis-op input:checked + .vis-check, .vis-invitados input:checked + .vis-check { border-color: var(--accent); background: var(--accent-bg); }
+.vis-op input:checked + .vis-check::after, .vis-invitados input:checked + .vis-check::after { opacity: 1; transform: rotate(45deg) scale(1); }
+.vis-op:has(input:checked) { border-color: var(--accent); }
+.vis-op input:focus-visible + .vis-check, .vis-invitados input:focus-visible + .vis-check { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); }
 .vis-op:has(input:disabled), .vis-invitados:has(input:disabled) { opacity: .6; cursor: default; }
 .vis-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .vis-titulo { font-size: 14px; color: var(--text); }

@@ -188,37 +188,43 @@
   window.addEventListener("hashchange", segunHash);
 
 
-  // ---------- Visibilidad del estado (se guarda sola al elegir) ----------
+  // ---------- Visibilidad del estado (varias opciones; se guarda sola al elegir) ----------
   (function () {
     const A = window.Auth;
     const bloque = document.getElementById("vis-miembro"), invitado = document.getElementById("vis-invitado");
     if (!A || !bloque) return;
-    const st = A.estado();
-    if (st !== "usuario") { invitado.hidden = false; return; }
+    if (A.estado() !== "usuario") { invitado.hidden = false; return; }
     bloque.hidden = false;
-    const radios = Array.from(document.querySelectorAll('input[name="visibilidad"]'));
+    const cajas = Array.from(document.querySelectorAll('input[name="visibilidad"]'));
     const caja = document.getElementById("vis-invitados-caja"), chk = document.getElementById("vis-invitados"), vmsg = document.getElementById("vis-msg");
-    let modo = "todos", cargado = false, ocupado = false, pendiente = false;
+    let modos = ["todos"], cargado = false, ocupado = false, pendiente = false;
     function pintar() {
-      radios.forEach((r) => { r.checked = r.value === modo; });
-      caja.hidden = modo !== "todos";
+      cajas.forEach((c) => { c.checked = modos.indexOf(c.value) >= 0; });
+      caja.hidden = modos.indexOf("todos") < 0;
     }
     async function guardar() {
       if (!cargado) return;
       if (ocupado) { pendiente = true; return; }
       ocupado = true; vmsg.textContent = "";
-      const r = await A.guardarVisibilidad(modo, modo === "todos" && chk.checked);
+      const r = await A.guardarVisibilidad(modos, modos.indexOf("todos") >= 0 && chk.checked);
       ocupado = false;
       if (!r.ok) vmsg.textContent = "No se pudo guardar. Inténtalo de nuevo.";
+      else { try { localStorage.setItem("vis-cambio", String(Date.now())); } catch (e) { /* nada */ } }
       if (pendiente) { pendiente = false; guardar(); }
     }
-    radios.forEach((r) => r.addEventListener("change", () => { if (!r.checked) return; modo = r.value; pintar(); guardar(); }));
+    cajas.forEach((c) => c.addEventListener("change", () => {
+      if (c.checked) modos = c.value === "nadie" ? ["nadie"] : modos.filter((m) => m !== "nadie").concat(c.value);
+      else modos = modos.filter((m) => m !== c.value);
+      if (!modos.length) modos = ["nadie"];            // sin ninguna opción equivale a «Nadie»
+      if (modos.indexOf("todos") < 0) chk.checked = false;
+      pintar(); guardar();
+    }));
     chk.addEventListener("change", guardar);
-    radios.forEach((r) => { r.disabled = true; }); chk.disabled = true;
+    cajas.forEach((c) => { c.disabled = true; }); chk.disabled = true;
     A.miVisibilidad().then((r) => {
-      if (r.ok) { modo = r.visibilidad; chk.checked = r.invitados; cargado = true; }
+      if (r.ok) { modos = r.visibilidades; chk.checked = r.invitados; cargado = true; }
       else vmsg.textContent = "No se pudo cargar tu visibilidad.";
-      radios.forEach((x) => { x.disabled = !cargado; }); chk.disabled = !cargado;
+      cajas.forEach((x) => { x.disabled = !cargado; }); chk.disabled = !cargado;
       pintar();
     });
     pintar();

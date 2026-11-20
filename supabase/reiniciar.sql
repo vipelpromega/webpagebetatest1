@@ -43,6 +43,7 @@ drop function if exists public.admin_registros(int);
 drop function if exists public.admin_borrar_registros(bigint[], boolean, text);
 drop function if exists public.latido(text);
 drop function if exists public.mi_visibilidad(text);
+drop function if exists public.guardar_visibilidad(text, text[], boolean);
 drop function if exists public.guardar_visibilidad(text, text, boolean);
 drop function if exists public.lista_usuarios(text);
 drop function if exists public.estados_usuarios(text);
