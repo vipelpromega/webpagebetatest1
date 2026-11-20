@@ -19,6 +19,8 @@ drop function if exists public.mi_historial(text);
 drop function if exists public.mis_preferencias(text);
 drop function if exists public.guardar_preferencias(text, jsonb);
 drop function if exists public.admin_paises();
+drop function if exists public.admin_registros_perfiles(int, bigint);
+drop function if exists public.admin_borrar_registros_perfiles(bigint[], boolean, text);
 drop function if exists public.admin_suspender_cuenta(uuid, boolean, text);
 drop function if exists public.admin_graficas();
 drop function if exists public.cerrar_sesion(text, uuid);

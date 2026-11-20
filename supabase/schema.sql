@@ -96,6 +96,10 @@ create table if not exists public.historial (
   ip          text
 );
 alter table public.historial add column if not exists pais text;
+alter table public.historial drop constraint if exists historial_evento_check;
+alter table public.historial add constraint historial_evento_check check (evento in
+  ('ingreso', 'registro', 'fallo', 'suspendida', 'cambio_nombre', 'cambio_foto', 'cambio_clave',
+   'clave_restablecida', 'cierre_sesion', 'cierre_otras'));
 create index if not exists historial_usuario_idx on public.historial (usuario_id, fecha desc);
 
 create table if not exists public.intentos (
@@ -554,6 +558,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'nombre_formato');
   end if;
   update public.usuarios set nombre = v_nombre where id = v.id;
+  perform privado.anotar(v.id, 'cambio_nombre');
   return jsonb_build_object('ok', true, 'nombre', v_nombre);
 end $$;
 
@@ -572,6 +577,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'avatar_formato');
   end if;
   update public.usuarios set avatar = a where id = v.id;
+  perform privado.anotar(v.id, 'cambio_foto');
   return jsonb_build_object('ok', true, 'avatar', a);
 end $$;
 
@@ -602,6 +608,7 @@ begin
   delete from public.intentos where clave = v_ku;
   update public.usuarios set clave = extensions.crypt(p_nueva, extensions.gen_salt('bf', 10)) where id = v.id;
   delete from public.sesiones where usuario_id = v.id and token <> privado.hash_texto(p_token);
+  perform privado.anotar(v.id, 'cambio_clave');
   perform privado.evento('clave_cambiada', jsonb_build_object('usuario', v.usuario));
   return jsonb_build_object('ok', true);
 end $$;
@@ -609,8 +616,11 @@ end $$;
 -- 6) Cerrar sesión
 create or replace function public.salir(p_token text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid;
 begin
+  select usuario_id into v_uid from public.sesiones where token = privado.hash_texto(coalesce(p_token, ''));
   delete from public.sesiones where token = privado.hash_texto(coalesce(p_token, ''));
+  if v_uid is not null then perform privado.anotar(v_uid, 'cierre_sesion'); end if;
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -657,7 +667,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'preferencias');
   end if;
   -- Solo se guardan claves y valores conocidos
-  if p_prefs ->> 'tema' in ('auto', 'light', 'dark') then r := r || jsonb_build_object('tema', p_prefs ->> 'tema'); end if;
+  if p_prefs ->> 'tema' in ('auto', 'light', 'dark', 'oled') then r := r || jsonb_build_object('tema', p_prefs ->> 'tema'); end if;
   if p_prefs ->> 'idioma' in ('es', 'en') then r := r || jsonb_build_object('idioma', p_prefs ->> 'idioma'); end if;
   if p_prefs ->> 'fondo' in ('ninguno', 'aurora', 'atardecer', 'oceano', 'bosque', 'noche', 'puntos', 'cuadricula', 'diagonal') then
     r := r || jsonb_build_object('fondo', p_prefs ->> 'fondo');
@@ -728,6 +738,7 @@ begin
   end if;
   delete from public.sesiones where usuario_id = v.id and token <> privado.hash_texto(p_token);
   get diagnostics n = row_count;
+  if n > 0 then perform privado.anotar(v.id, 'cierre_otras'); end if;
   return jsonb_build_object('ok', true, 'cerradas', n);
 end $$;
 
@@ -892,7 +903,11 @@ begin
     'estado', case when v.usado_en is not null then 'usada' else 'sin_usar' end,
     'creado', v.creado, 'usado_en', v.usado_en, 'creado_por_email', v.creado_por_email,
     'cuenta', case when u.id is null then null
-                   else jsonb_build_object('usuario', u.usuario, 'nombre', u.nombre, 'avatar', u.avatar, 'suspendida', u.suspendida, 'suspendida_en', u.suspendida_en) end);
+                   else jsonb_build_object('usuario', u.usuario, 'nombre', u.nombre, 'avatar', u.avatar, 'suspendida', u.suspendida, 'suspendida_en', u.suspendida_en,
+      'pais_registro', (select h.pais from public.historial h where h.usuario_id = u.id and h.evento = 'registro' order by h.fecha limit 1),
+      'paises', coalesce((select jsonb_agg(x.p order by x.n desc, x.p) from (
+          select coalesce(upper(h.pais), '??') as p, count(*) as n from public.historial h
+           where h.usuario_id = u.id and h.evento in ('ingreso', 'registro') group by 1) x), '[]'::jsonb)) end);
 end $$;
 
 -- F3) Restablecer la contraseña de la cuenta de una clave.
@@ -926,6 +941,7 @@ begin
   end if;
   update public.usuarios set clave = extensions.crypt(p_nueva, extensions.gen_salt('bf', 10)) where id = u.id;
   delete from public.sesiones where usuario_id = u.id;
+  perform privado.anotar(u.id, 'clave_restablecida');
   delete from public.intentos where clave = 'login:' || u.usuario;
   perform privado.auditar(v_admin, 'restablecer_clave', jsonb_build_object('etiqueta', v.etiqueta, 'usuario', u.usuario));
   return jsonb_build_object('ok', true);
@@ -965,6 +981,56 @@ begin
   perform privado.auditar(v_admin, case when p_suspender then 'suspender_cuenta' else 'reactivar_cuenta' end,
     jsonb_build_object('usuario', v_user, 'sesiones_cerradas', v_n));
   return jsonb_build_object('ok', true, 'suspendida', coalesce(p_suspender, false));
+end $$;
+
+-- Registros de perfiles: lo que hace cada cuenta (ingresos, cambios, cierres), con país y hora
+create or replace function public.admin_registros_perfiles(p_limite int default 200, p_antes bigint default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_admin uuid := privado.admin_id();
+  v_lim   int := greatest(1, least(coalesce(p_limite, 200), 500));
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  return jsonb_build_object('ok', true,
+    'total', (select count(*) from public.historial),
+    'registros', coalesce((
+      select jsonb_agg(jsonb_build_object('id', x.id, 'fecha', x.fecha, 'evento', x.evento, 'pais', upper(x.pais),
+                                          'dispositivo', x.dispositivo, 'ip', x.ip, 'usuario', x.usuario, 'nombre', x.nombre)
+                       order by x.id desc)
+        from (select h.*, u.usuario, u.nombre
+                from public.historial h join public.usuarios u on u.id = h.usuario_id
+               where p_antes is null or h.id < p_antes
+               order by h.id desc limit v_lim + 1) x
+       where true), '[]'::jsonb));
+end $$;
+
+-- Borrar registros de perfiles (exige la contraseña maestra; el borrado queda en Registros)
+create or replace function public.admin_borrar_registros_perfiles(p_ids bigint[], p_todos boolean, p_maestra text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_admin uuid := privado.admin_id();
+  v_err   jsonb;
+  n       int := 0;
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  v_err := privado.verificar_maestra(v_admin, p_maestra);
+  if v_err is not null then
+    return v_err;
+  end if;
+  if coalesce(p_todos, false) then
+    delete from public.historial;
+  elsif p_ids is not null and cardinality(p_ids) > 0 and cardinality(p_ids) <= 1000 then
+    delete from public.historial where id = any (p_ids);
+  else
+    return jsonb_build_object('ok', false, 'error', 'nada_que_borrar');
+  end if;
+  get diagnostics n = row_count;
+  perform privado.auditar(v_admin, 'borrar_registros_perfiles', jsonb_build_object('cantidad', n, 'todos', coalesce(p_todos, false)));
+  return jsonb_build_object('ok', true, 'borrados', n);
 end $$;
 
 -- Países desde donde se accede (según el historial de ingresos)
@@ -1168,6 +1234,8 @@ revoke all on function public.mi_historial(text)                   from public, 
 revoke all on function public.mis_preferencias(text)               from public, anon, authenticated;
 revoke all on function public.guardar_preferencias(text, jsonb)    from public, anon, authenticated;
 revoke all on function public.admin_paises()                       from public, anon, authenticated;
+revoke all on function public.admin_registros_perfiles(int, bigint) from public, anon, authenticated;
+revoke all on function public.admin_borrar_registros_perfiles(bigint[], boolean, text) from public, anon, authenticated;
 revoke all on function public.admin_suspender_cuenta(uuid, boolean, text) from public, anon, authenticated;
 revoke all on function public.admin_graficas()                      from public, anon, authenticated;
 revoke all on function public.cerrar_sesion(text, uuid)            from public, anon, authenticated;
@@ -1215,6 +1283,8 @@ grant execute on function public.admin_registros(int)              to authentica
 grant execute on function public.admin_suspender_cuenta(uuid, boolean, text) to authenticated;
 grant execute on function public.admin_graficas()                   to authenticated;
 grant execute on function public.admin_paises()                    to authenticated;
+grant execute on function public.admin_registros_perfiles(int, bigint) to authenticated;
+grant execute on function public.admin_borrar_registros_perfiles(bigint[], boolean, text) to authenticated;
 grant execute on function public.admin_red()                       to authenticated;
 grant execute on function public.admin_desbloquear(text, text)     to authenticated;
 grant execute on function public.admin_consola(text)               to authenticated;

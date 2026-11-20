@@ -414,3 +414,28 @@ main {
 .clima-extra dt { font-size: 11px; color: var(--muted); }
 .clima-extra dd { margin: 0; font-size: 14px; }
 html.i18n-pend body { visibility: hidden; }
+
+/* ---------- Tema OLED: como Oscuro, pero negro puro ---------- */
+:root[data-oled] {
+  --bg: #000000;
+  --mica-1: rgba(96, 205, 255, .035);
+  --mica-2: rgba(177, 140, 255, .03);
+  --panel: #0a0a0a;
+  --panel-2: #121212;
+  --flyout: #0d0d0d;
+  --flyout-glass: rgba(8, 8, 8, .86);
+  --muted: #c4c4c4;
+  --faint: #8c8c8c;
+  --border: #1d1d1d;
+  --border-2: #484848;
+  --hover: #151515;
+  --field: rgba(255, 255, 255, .05);
+  --field-hover: rgba(255, 255, 255, .08);
+  --field-focus: rgba(0, 0, 0, .85);
+  --shadow-flyout: 0 8px 16px rgba(0, 0, 0, .7);
+  --shadow-dialog: 0 32px 64px rgba(0, 0, 0, .8), 0 2px 21px rgba(0, 0, 0, .8);
+  --gate-bg:
+    radial-gradient(70% 90% at 15% 15%, rgba(0, 103, 192, .38), transparent 65%),
+    radial-gradient(60% 80% at 90% 85%, rgba(122, 86, 214, .3), transparent 65%),
+    #000000;
+}

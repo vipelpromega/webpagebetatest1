@@ -74,9 +74,10 @@ en su botón de la barra lateral).
 - **Cuentas suspendidas**: un administrador puede suspender una cuenta (cierra sus sesiones y no la deja entrar). Al intentarlo ve «Tu cuenta está suspendida».
 - Para activarlo, vuelve a ejecutar `supabase/schema.sql` (no hace falta `reiniciar.sql`).
 
-## Contraseñas, fondos y preferencias que viajan
+## Medidor, fondos, tema OLED y preferencias que viajan
 
-- **Contraseñas** (`contrasenas.html`): generador (8–64 caracteres, tipos a elegir, sin caracteres ambiguos) y medidor de seguridad con entropía y tiempo estimado de adivinación. Usa `crypto.getRandomValues`; nada se envía ni se guarda.
+- **Medidor de seguridad** (al crear la cuenta): barra de 5 niveles con entropía y tiempo estimado de adivinación, calculado en el navegador; nada se envía. La página «Contraseñas» (generador) se eliminó.
+- **Tema OLED** (Configuración → Apariencia): como Oscuro pero con negro puro (#000) y superficies casi negras; también existe en la página de administrador.
 - **Fondo de la página** (Configuración → Apariencia): 8 fondos (degradados y patrones) o una imagen propia (se reduce a ≤1600 px y se guarda solo en ese dispositivo). «Restablecer a normal» quita el fondo y la imagen.
 - **Preferencias de la cuenta**: con la sesión iniciada, el tema, el color de acento, el idioma y el fondo (los predefinidos) se guardan en `usuarios.preferencias` y se aplican al iniciar sesión en cualquier dispositivo. El servidor solo acepta valores conocidos (`guardar_preferencias`).
 - **Países de acceso** (administrador): el servidor guarda el país de cada acceso si la petición trae la cabecera `cf-ipcountry` (Supabase pasa por Cloudflare). Si no llega, aparece como «Desconocido».

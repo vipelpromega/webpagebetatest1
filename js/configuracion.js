@@ -155,16 +155,14 @@
 
   // ---------- Preferencias de la cuenta ----------
   const prefsEstado = document.getElementById("prefs-estado");
-  const prefsAhora = document.getElementById("prefs-ahora");
   const TEXTOS_PREFS = {
     "sin-cuenta": "Inicia sesión para que tus preferencias viajen contigo",
     guardando: "Sincronizando…",
-    guardado: "Tu tema, color de acento, idioma y fondo se guardan en tu cuenta y se aplican en tus otros dispositivos",
+    guardado: "Se guardan solas en tu cuenta y se aplican en tus otros dispositivos: tema, color de acento, idioma y fondo",
     error: "No se pudieron sincronizar. Se reintentará al cambiar algo"
   };
   if (window.Preferencias) {
-    window.Preferencias.alCambiar((e) => { prefsEstado.textContent = TEXTOS_PREFS[e] || TEXTOS_PREFS["sin-cuenta"]; prefsAhora.hidden = e === "sin-cuenta"; });
-    prefsAhora.addEventListener("click", () => window.Preferencias.guardarYa());
+    window.Preferencias.alCambiar((e) => { prefsEstado.textContent = TEXTOS_PREFS[e] || TEXTOS_PREFS["sin-cuenta"]; });
   }
 
   // ---------- Subsecciones (Apariencia / Cuenta) ----------
@@ -381,7 +379,9 @@
     const hisLista = document.getElementById("historial-lista");
     const hisMsg = document.getElementById("historial-msg");
     const hisAct = document.getElementById("historial-actualizar");
-    const ETIQ = { ingreso: ["Inicio de sesión", "ok"], registro: ["Cuenta creada", "nuevo"], fallo: ["Intento fallido", "mal"], suspendida: ["Intento con cuenta suspendida", "mal"] };
+    const ETIQ = { ingreso: ["Inicio de sesión", "ok"], registro: ["Cuenta creada", "nuevo"], fallo: ["Intento fallido", "mal"], suspendida: ["Intento con cuenta suspendida", "mal"],
+      cambio_nombre: ["Nombre cambiado", "nuevo"], cambio_foto: ["Foto de perfil cambiada", "nuevo"], cambio_clave: ["Contraseña cambiada", "nuevo"],
+      clave_restablecida: ["Contraseña restablecida por un administrador", "nuevo"], cierre_sesion: ["Sesión cerrada", "ok"], cierre_otras: ["Otras sesiones cerradas", "ok"] };
     async function cargarHistorial() {
       hisMsg.textContent = "";
       hisAct.disabled = true;

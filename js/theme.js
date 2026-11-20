@@ -11,7 +11,7 @@
   function read() {
     try {
       var v = localStorage.getItem(KEY);
-      return v === "light" || v === "dark" || v === "auto" ? v : DEFAULT;
+      return v === "light" || v === "dark" || v === "oled" || v === "auto" ? v : DEFAULT;
     } catch (e) {
       return DEFAULT;
     }
@@ -19,16 +19,18 @@
 
   function efectivo() {
     var m = read();
+    if (m === "oled") return "dark";
     return m === "auto" ? (mq && mq.matches ? "light" : "dark") : m;
   }
 
   function apply() {
     root.setAttribute("data-theme", efectivo());
     root.setAttribute("data-modo", read());
+    if (read() === "oled") root.setAttribute("data-oled", ""); else root.removeAttribute("data-oled");
   }
 
   function set(theme) {
-    if (theme !== "light" && theme !== "dark" && theme !== "auto") return;
+    if (theme !== "light" && theme !== "dark" && theme !== "oled" && theme !== "auto") return;
     try { localStorage.setItem(KEY, theme); } catch (e) { /* sin almacenamiento */ }
     apply();
     aplicarAcento(leerAcento());
@@ -56,7 +58,7 @@
   function contraste(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
   // Ajusta el color para que se lea como texto/línea sobre el fondo del tema (mín. 3:1)
   function legible(c, oscuro) {
-    var fondo = oscuro ? "#2b2b2b" : "#ffffff", i = 0;
+    var fondo = oscuro ? (root.hasAttribute("data-oled") ? "#0b0b0b" : "#2b2b2b") : "#ffffff", i = 0;
     while (contraste(c, fondo) < 3 && i++ < 20) c = mezcla(c, oscuro ? "#ffffff" : "#000000", 0.1);
     return c;
   }
@@ -101,7 +103,7 @@
     var rg = function (c, o) { var r = rgb(c); return "rgba(" + r[0] + "," + r[1] + "," + r[2] + "," + o + ")"; };
     st.setProperty("--mica-1", rg(base, 0.08));
     st.setProperty("--mica-2", rg(c2, 0.07));
-    st.setProperty("--gate-bg", "radial-gradient(70% 90% at 15% 15%, " + rg(base, 0.5) + ", transparent 65%), radial-gradient(60% 80% at 90% 85%, " + rg(c2, 0.42) + ", transparent 65%), " + (oscuro ? "#14161c" : "#e9edf5"));
+    st.setProperty("--gate-bg", "radial-gradient(70% 90% at 15% 15%, " + rg(base, 0.5) + ", transparent 65%), radial-gradient(60% 80% at 90% 85%, " + rg(c2, 0.42) + ", transparent 65%), " + (oscuro ? (root.hasAttribute("data-oled") ? "#000000" : "#14161c") : "#e9edf5"));
   }
 
   function setAcento(a) {

@@ -1,31 +1,5 @@
-// Generador de contraseñas y medidor de seguridad. Todo ocurre en el navegador.
+// Medidor de fuerza de contraseñas (se usa al crear la cuenta). Todo ocurre en el navegador.
 (function () {
-  var $ = function (id) { return document.getElementById(id); };
-  var CLASES = {
-    may: "ABCDEFGHIJKLMNOPQRSTUVWXYZ", min: "abcdefghijklmnopqrstuvwxyz",
-    num: "0123456789", sim: "!@#$%^&*()-_=+[]{};:,.?/~"
-  };
-  var AMBIGUOS = /[Il1O0o]/g;
-
-  // Entero uniforme en [0, n) sin sesgo
-  function aleatorio(n) {
-    var lim = Math.floor(4294967296 / n) * n, b = new Uint32Array(1);
-    do { crypto.getRandomValues(b); } while (b[0] >= lim);
-    return b[0] % n;
-  }
-
-  function generar(largo, activas, sinAmbiguos) {
-    var grupos = activas.map(function (k) {
-      var g = CLASES[k]; return sinAmbiguos ? g.replace(AMBIGUOS, "") : g;
-    });
-    if (!grupos.length || largo < grupos.length) return null;
-    var todos = grupos.join("");
-    var r = grupos.map(function (g) { return g.charAt(aleatorio(g.length)); }); // al menos uno de cada tipo
-    while (r.length < largo) r.push(todos.charAt(aleatorio(todos.length)));
-    for (var i = r.length - 1; i > 0; i--) { var j = aleatorio(i + 1), t = r[i]; r[i] = r[j]; r[j] = t; }
-    return r.join("");
-  }
-
   /* ---------- Medidor ---------- */
   var COMUNES = ["password", "contraseña", "contrasena", "123456", "12345678", "123456789", "qwerty", "qwertyuiop", "abc123", "111111",
     "iloveyou", "admin", "welcome", "letmein", "monkey", "dragon", "football", "baseball", "master", "login", "princess", "sunshine",
@@ -91,30 +65,5 @@
     }
   }
 
-  /* ---------- Generador (interfaz) ---------- */
-  var clave = $("cs-clave"), largo = $("cs-largo"), err = $("cs-error");
-  function actual() {
-    var act = ["may", "min", "num", "sim"].filter(function (k) { return $("cs-" + k).checked; });
-    $("cs-largo-v").textContent = largo.value;
-    var p = generar(Number(largo.value), act, $("cs-amb").checked);
-    if (!p) { clave.textContent = ""; err.textContent = "Elige al menos un tipo de carácter."; pintar($("cs-medidor-gen"), null); return; }
-    err.textContent = ""; clave.textContent = p; pintar($("cs-medidor-gen"), evaluar(p));
-    $("cs-copiar").textContent = "Copiar";
-  }
-  $("cs-generar").addEventListener("click", actual);
-  ["cs-largo", "cs-may", "cs-min", "cs-num", "cs-sim", "cs-amb"].forEach(function (id) { $(id).addEventListener("input", actual); });
-  $("cs-copiar").addEventListener("click", function () {
-    var t = clave.textContent; if (!t) return;
-    var ok = function () { $("cs-copiar").textContent = "¡Copiada!"; };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, function () { err.textContent = "No se pudo copiar. Selecciónala y cópiala a mano."; });
-    else err.textContent = "No se pudo copiar. Selecciónala y cópiala a mano.";
-  });
-
-  /* ---------- Medidor (interfaz) ---------- */
-  var prueba = $("cs-probar");
-  prueba.addEventListener("input", function () { pintar($("cs-medidor-med"), evaluar(prueba.value)); });
-  $("cs-ver").addEventListener("change", function () { prueba.type = $("cs-ver").checked ? "text" : "password"; });
-
-  actual();
-  window.ContrasenasTest = { evaluar: evaluar, generar: generar };
+  window.Fuerza = { evaluar: evaluar, pintar: pintar };
 })();

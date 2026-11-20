@@ -267,3 +267,18 @@ html.guest body[data-acceso="miembro"] main { display: none; }
 .recorte-zoom { flex: 1; accent-color: var(--accent); }
 .recorte-botones { display: flex; justify-content: flex-end; gap: 8px; }
 html.gate-open body > .recorte-fondo { visibility: visible; }
+
+/* ---------- Medidor de fuerza (registro) ---------- */
+.cs-medidor { margin-top: 8px; }
+.cs-medidor:empty { display: none; }
+.cs-barra { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.cs-barra span { height: 5px; border-radius: 3px; background: var(--border-2, var(--border)); transition: background .25s; }
+.cs-barra.n0 span.on { background: #e5484d; }
+.cs-barra.n1 span.on { background: #f76b15; }
+.cs-barra.n2 span.on { background: #e5a000; }
+.cs-barra.n3 span.on { background: #46a758; }
+.cs-barra.n4 span.on { background: #1a9b6f; }
+.cs-nivel { margin-top: 6px; font-weight: 600; font-size: 13px; }
+.cs-nivel.n0 { color: #e5484d; } .cs-nivel.n1 { color: #f76b15; } .cs-nivel.n2 { color: #c58b00; } .cs-nivel.n3 { color: #2f9e44; } .cs-nivel.n4 { color: #1a9b6f; }
+.cs-detalle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.cs-notas { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 12px; }

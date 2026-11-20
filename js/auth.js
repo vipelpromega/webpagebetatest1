@@ -586,6 +586,11 @@
       autocomplete: "new-password", ayuda: "Mínimo 8 caracteres."
     });
     var etiquetaClave = el("p", { class: "f-hint gate-etiqueta" });
+    var medidorClave = el("div", { class: "cs-medidor", "aria-live": "polite" });
+    fClave.grupo.appendChild(medidorClave);
+    fClave.input.addEventListener("input", function () {
+      if (window.Fuerza) window.Fuerza.pintar(medidorClave, window.Fuerza.evaluar(fClave.input.value));
+    });
 
     // Foto de perfil (opcional)
     var avatarElegido = null;
