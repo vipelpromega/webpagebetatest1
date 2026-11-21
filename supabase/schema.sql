@@ -677,6 +677,7 @@ begin
   if p_prefs ->> 'fondo' in ('ninguno', 'aurora', 'atardecer', 'oceano', 'bosque', 'noche') then
     r := r || jsonb_build_object('fondo', p_prefs ->> 'fondo');
   end if;
+  if jsonb_typeof(p_prefs -> 'blur') = 'boolean' then r := r || jsonb_build_object('blur', p_prefs -> 'blur'); end if;
   if p_prefs ? 'acento' then
     a := p_prefs -> 'acento';
     if jsonb_typeof(a) = 'null' then
@@ -709,7 +710,7 @@ do $$
 begin
   -- Versión anterior: una sola opción en `visibilidad`; se pasa a la lista y se elimina la columna
   if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'usuarios' and column_name = 'visibilidad') then
-    update public.usuarios set visibilidades = array[visibilidad];
+    update public.usuarios set visibilidades = array[visibilidad] where true;
     alter table public.usuarios drop constraint if exists usuarios_visibilidad_check;
     alter table public.usuarios drop column visibilidad;
   end if;
@@ -720,6 +721,10 @@ alter table public.usuarios add constraint usuarios_visibilidades_check
          and visibilidades <@ array['todos', 'amigos', 'mejores_amigos', 'seguidos', 'seguidores', 'nadie']);
 alter table public.usuarios add column if not exists visible_invitados boolean not null default false;
 alter table public.usuarios add column if not exists visto timestamptz;
+-- Estado elegido por la persona: en_linea, no_molestar (aún no hace nada) o desconectado (se muestra desconectada aunque esté usando la página)
+alter table public.usuarios add column if not exists estado_manual text not null default 'en_linea';
+alter table public.usuarios drop constraint if exists usuarios_estado_manual_check;
+alter table public.usuarios add constraint usuarios_estado_manual_check check (estado_manual in ('en_linea', 'no_molestar', 'desconectado'));
 
 -- Latido: la página lo envía cada 20 s mientras está abierta y visible. Online = latido en los últimos 45 s.
 create or replace function public.latido(p_token text)
@@ -742,7 +747,7 @@ begin
   if v.id is null then
     return jsonb_build_object('ok', false, 'error', 'sesion');
   end if;
-  return jsonb_build_object('ok', true, 'visibilidades', to_jsonb(v.visibilidades), 'invitados', v.visible_invitados);
+  return jsonb_build_object('ok', true, 'visibilidades', to_jsonb(v.visibilidades), 'invitados', v.visible_invitados, 'estado', v.estado_manual);
 end $$;
 
 drop function if exists public.guardar_visibilidad(text, text, boolean);
@@ -770,6 +775,22 @@ begin
   return jsonb_build_object('ok', true, 'visibilidades', to_jsonb(m), 'invitados', ('todos' = any (m)) and coalesce(p_invitados, false));
 end $$;
 
+
+create or replace function public.guardar_estado(p_token text, p_estado text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  if p_estado is null or p_estado not in ('en_linea', 'no_molestar', 'desconectado') then
+    return jsonb_build_object('ok', false, 'error', 'estado');
+  end if;
+  update public.usuarios set estado_manual = p_estado where id = v.id;
+  return jsonb_build_object('ok', true, 'estado', p_estado);
+end $$;
+
 -- Usuarios registrados con foto, nombre y estado ('online' / 'offline').
 -- Quien no puede ver el estado de alguien lo ve siempre «offline» (no se revela nada):
 --  · Con sesión: el estado real solo de quien eligió «Todos» (y el propio siempre).
@@ -791,14 +812,14 @@ begin
       select u.id, u.nombre, u.avatar,
              case when v_miembro then u.usuario end as usuario,
              case
-               when u.visto > now() - interval '45 seconds'
+               when u.visto > now() - interval '45 seconds' and u.estado_manual <> 'desconectado'
                 and ((v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados)))
                  then 'online' else 'offline'
              end as estado,
              (v_miembro and u.id = v.id) as yo
         from public.usuarios u
        where not u.suspendida
-       order by coalesce(u.visto > now() - interval '45 seconds'
+       order by coalesce(u.visto > now() - interval '45 seconds' and u.estado_manual <> 'desconectado'
                  and ((v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados))), false) desc,
                 lower(u.nombre), u.id
        limit 60) x), '[]'::jsonb));
@@ -819,7 +840,7 @@ begin
   return jsonb_build_object('ok', true, 'estados', coalesce((
     select jsonb_agg(jsonb_build_object('id', u.id,
              'estado', case
-               when u.visto > now() - interval '45 seconds'
+               when u.visto > now() - interval '45 seconds' and u.estado_manual <> 'desconectado'
                 and ((v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados)))
                  then 'online' else 'offline'
              end))
@@ -1152,7 +1173,7 @@ begin
     return v_err;
   end if;
   if coalesce(p_todos, false) then
-    delete from public.historial;
+    delete from public.historial where true; -- «where true»: Supabase rechaza DELETE sin WHERE (safeupdate)
   elsif p_ids is not null and cardinality(p_ids) > 0 and cardinality(p_ids) <= 1000 then
     delete from public.historial where id = any (p_ids);
   else
@@ -1180,7 +1201,7 @@ begin
     return v_err;
   end if;
   if coalesce(p_todos, false) then
-    delete from public.auditoria;
+    delete from public.auditoria where true; -- «where true»: Supabase rechaza DELETE sin WHERE (safeupdate)
   elsif p_ids is not null and cardinality(p_ids) > 0 and cardinality(p_ids) <= 1000 then
     delete from public.auditoria where id = any (p_ids);
   else
@@ -1353,7 +1374,7 @@ begin
       perform privado.auditar(v_admin, 'consola', jsonb_build_object('comando', 'cerrar', 'usuario', lower(v_arg), 'sesiones', v_n));
     end if;
   elsif v_cmd = 'cerrar-todas' then
-    delete from public.sesiones;
+    delete from public.sesiones where true; -- «where true»: Supabase rechaza DELETE sin WHERE (safeupdate)
     get diagnostics v_n = row_count;
     v_out := array[v_n || ' sesión(es) cerrada(s).'];
     perform privado.auditar(v_admin, 'consola', jsonb_build_object('comando', 'cerrar-todas', 'sesiones', v_n));
@@ -1391,6 +1412,7 @@ revoke all on function public.mis_sesiones(text)                   from public, 
 revoke all on function public.mi_historial(text)                   from public, anon, authenticated;
 revoke all on function public.latido(text)                          from public, anon, authenticated;
 revoke all on function public.mi_visibilidad(text)                  from public, anon, authenticated;
+revoke all on function public.guardar_estado(text, text)            from public, anon, authenticated;
 revoke all on function public.guardar_visibilidad(text, text[], boolean) from public, anon, authenticated;
 revoke all on function public.lista_usuarios(text)                  from public, anon, authenticated;
 revoke all on function public.estados_usuarios(text)                from public, anon, authenticated;
@@ -1416,6 +1438,7 @@ grant execute on function public.mis_sesiones(text)                to anon, auth
 grant execute on function public.mi_historial(text)                to anon, authenticated;
 grant execute on function public.latido(text)                       to anon, authenticated;
 grant execute on function public.mi_visibilidad(text)               to anon, authenticated;
+grant execute on function public.guardar_estado(text, text)         to anon, authenticated;
 grant execute on function public.guardar_visibilidad(text, text[], boolean) to anon, authenticated;
 grant execute on function public.lista_usuarios(text)               to anon, authenticated;
 grant execute on function public.estados_usuarios(text)             to anon, authenticated;

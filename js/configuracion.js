@@ -1,24 +1,17 @@
 (() => {
   // ---------- Tema ----------
-  const buttons = document.querySelectorAll("[data-theme-option]");
-
-  function refresh() {
-    const current = window.Theme.get();
-    buttons.forEach((btn) => {
-      const active = btn.dataset.themeOption === current;
-      btn.setAttribute("aria-pressed", String(active));
-      btn.classList.toggle("selected", active);
-    });
-  }
-
-  buttons.forEach((btn) =>
-    btn.addEventListener("click", () => {
-      window.Theme.set(btn.dataset.themeOption);
-      refresh();
-    })
-  );
-
+  const temaSel = document.getElementById("tema-select");
+  const refresh = () => { temaSel.value = window.Theme.get(); };
+  temaSel.addEventListener("change", () => { window.Theme.set(temaSel.value); refresh(); });
   refresh();
+
+  // ---------- Difuminado de las tarjetas ----------
+  const blurChk = document.getElementById("blur-chk");
+  const refreshBlur = () => { blurChk.checked = window.Theme.getBlur(); };
+  blurChk.addEventListener("change", () => window.Theme.setBlur(blurChk.checked));
+  refreshBlur();
+  // Si las preferencias de la cuenta cambian algo al cargar, los controles lo reflejan
+  window.addEventListener("prefs-cambio", () => { refresh(); refreshBlur(); });
 
   // ---------- Idioma ----------
   const idiomaBtns = document.querySelectorAll("[data-idioma]");
@@ -50,7 +43,7 @@
   const c2caja = document.getElementById("acento-c2-caja");
   const vista = document.getElementById("acento-vista");
   const tipoBtns = document.querySelectorAll("[data-acento-tipo]");
-  const angBtns = document.querySelectorAll("[data-acento-ang]");
+  const angSel = document.getElementById("acento-ang-select");
   const angCaja = document.getElementById("acento-ang");
   let actual = window.Theme.getAccent() || { tipo: "solido", c1: "#0078d4", c2: "#00b7c3", ang: 135 };
   const muestras = RECOM.map((r) => {
@@ -65,7 +58,7 @@
   function pintarAcento() {
     const grad = actual.tipo === "degradado";
     tipoBtns.forEach((b) => { const a = b.dataset.acentoTipo === actual.tipo; b.classList.toggle("selected", a); b.setAttribute("aria-pressed", String(a)); });
-    angBtns.forEach((b) => { const a = Number(b.dataset.acentoAng) === Number(actual.ang); b.classList.toggle("selected", a); b.setAttribute("aria-pressed", String(a)); });
+    angSel.value = String(Number(actual.ang) || 135);
     c2caja.hidden = !grad; angCaja.hidden = !grad;
     c1.value = actual.c1; c2.value = actual.c2 || actual.c1;
     vista.style.background = fondo(actual);
@@ -79,7 +72,7 @@
   }
   function aplicar(a) { actual = a; window.Theme.setAccent(a); pintarAcento(); }
   tipoBtns.forEach((b) => b.addEventListener("click", () => aplicar(Object.assign({}, actual, { tipo: b.dataset.acentoTipo, c2: actual.c2 || actual.c1 }))));
-  angBtns.forEach((b) => b.addEventListener("click", () => aplicar(Object.assign({}, actual, { ang: Number(b.dataset.acentoAng) }))));
+  angSel.addEventListener("change", () => aplicar(Object.assign({}, actual, { ang: Number(angSel.value) })));
   c1.addEventListener("input", () => aplicar(Object.assign({}, actual, { c1: c1.value })));
   c2.addEventListener("input", () => aplicar(Object.assign({}, actual, { c2: c2.value })));
   document.getElementById("acento-reset").addEventListener("click", () => {

@@ -426,7 +426,14 @@
     var s = leerSesion();
     if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
     return rpc("mi_visibilidad", { p_token: s.token }).then(function (r) {
-      return r.ok ? { ok: true, visibilidades: r.visibilidades || ["todos"], invitados: !!r.invitados } : { ok: false, error: r.error || "error" };
+      return r.ok ? { ok: true, visibilidades: r.visibilidades || ["todos"], invitados: !!r.invitados, estado: r.estado || "en_linea" } : { ok: false, error: r.error || "error" };
+    });
+  }
+  function guardarEstado(estado) {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
+    return rpc("guardar_estado", { p_token: s.token, p_estado: estado }).then(function (r) {
+      return r.ok ? { ok: true, estado: r.estado } : { ok: false, error: r.error || "error" };
     });
   }
   function guardarVisibilidad(modos, invitados) {
@@ -442,6 +449,7 @@
     listaUsuarios: listaUsuarios,
     estadosUsuarios: estadosUsuarios,
     miVisibilidad: miVisibilidad,
+    guardarEstado: guardarEstado,
     guardarVisibilidad: guardarVisibilidad,
     preferenciasDeCuenta: preferenciasDeCuenta,
     guardarPreferenciasDeCuenta: guardarPreferenciasDeCuenta,
@@ -820,8 +828,24 @@
     }
     function abrir() {
       var actual = usuarioActual() || u;
-      var cab = el("div", { class: "cuenta-cab" }, (function () { var a = el("span", {}); rellenarAvatar(a, actual, true); return a; })(),
+      // Al pulsar la foto y el nombre se va al perfil (pestaña Cuenta de Configuración)
+      var cab = el("a", { class: "cuenta-cab", role: "menuitem", href: "configuracion.html#cuenta", "aria-label": "Ir a mi perfil" }, (function () { var a = el("span", {}); rellenarAvatar(a, actual, true); return a; })(),
         el("div", { class: "cuenta-datos" }, el("strong", {}, actual.nombre), el("span", {}, "@" + actual.usuario)));
+      // Estado de la cuenta
+      var ESTADOS = [["en_linea", "En línea"], ["no_molestar", "No molestar"], ["desconectado", "Desconectado"]];
+      var botonesEstado = {};
+      var grupoEstado = el("div", { class: "cuenta-estado", role: "group", "aria-label": "Estado de tu cuenta" });
+      function marcarEstado(e) { Object.keys(botonesEstado).forEach(function (k) { var on = k === e; botonesEstado[k].classList.toggle("sel", on); botonesEstado[k].setAttribute("aria-checked", String(on)); }); }
+      ESTADOS.forEach(function (par) {
+        var b = el("button", { type: "button", class: "cuenta-est e-" + par[0], role: "menuitemradio", "aria-checked": "false" },
+          el("span", { class: "est-punto", "aria-hidden": "true" }), par[1]);
+        b.addEventListener("click", function () {
+          marcarEstado(par[0]);
+          guardarEstado(par[0]).then(function (r) { if (!r.ok) miVisibilidad().then(function (v) { if (v.ok) marcarEstado(v.estado); }); });
+        });
+        botonesEstado[par[0]] = b; grupoEstado.appendChild(b);
+      });
+      miVisibilidad().then(function (v) { if (v.ok && menu) marcarEstado(v.estado); });
       function item(texto, icono, accion, href) {
         var n = href ? el("a", { class: "cuenta-item", role: "menuitem", href: href }) : el("button", { type: "button", class: "cuenta-item", role: "menuitem" });
         var i = el("span", { class: "cuenta-icono", "aria-hidden": "true" });
@@ -831,6 +855,7 @@
         return n;
       }
       menu = el("div", { class: "cuenta-menu", role: "menu", "aria-label": "Cuenta" }, cab,
+        el("div", { class: "cuenta-est-titulo" }, "Estado"), grupoEstado,
         el("div", { class: "side-divider", role: "separator" }),
         item("Configuración", ICONO_AJUSTES, null, "configuracion.html"),
         item("Foto de perfil", ICONO_FOTO, null, "configuracion.html#foto"),

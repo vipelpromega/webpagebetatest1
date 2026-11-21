@@ -64,12 +64,12 @@
               <div class="setting-desc">"Sistema" sigue el modo de tu dispositivo; "OLED" es un negro puro que ahorra batería en pantallas OLED</div>
             </div>
             <div class="setting-control">
-              <div class="segmented" role="group" aria-label="Tema">
-                <button type="button" class="seg" data-theme-option="auto" aria-pressed="false">Sistema</button>
-                <button type="button" class="seg" data-theme-option="dark" aria-pressed="false">Oscuro</button>
-                <button type="button" class="seg" data-theme-option="oled" aria-pressed="false">OLED</button>
-                <button type="button" class="seg" data-theme-option="light" aria-pressed="false">Claro</button>
-              </div>
+              <span class="desplegable"><select id="tema-select" aria-label="Tema">
+                <option value="auto">Sistema</option>
+                <option value="dark">Oscuro</option>
+                <option value="oled">OLED</option>
+                <option value="light">Claro</option>
+              </select></span>
             </div>
           </div>
 
@@ -93,12 +93,12 @@
                 </div>
                 <label class="color-campo"><span>Primer color</span><input type="color" id="acento-c1" value="#0078d4"></label>
                 <label class="color-campo" id="acento-c2-caja"><span>Segundo color</span><input type="color" id="acento-c2" value="#00b7c3"></label>
-                <div class="segmented" id="acento-ang" role="group" aria-label="Dirección">
-                  <button type="button" class="seg" data-acento-ang="90" aria-pressed="false" aria-label="→">→</button>
-                  <button type="button" class="seg" data-acento-ang="135" aria-pressed="false" aria-label="↘">↘</button>
-                  <button type="button" class="seg" data-acento-ang="180" aria-pressed="false" aria-label="↓">↓</button>
-                  <button type="button" class="seg" data-acento-ang="45" aria-pressed="false" aria-label="↗">↗</button>
-                </div>
+                <span class="desplegable" id="acento-ang"><select id="acento-ang-select" aria-label="Dirección del degradado">
+                  <option value="90">→ Hacia la derecha</option>
+                  <option value="135">↘ Diagonal descendente</option>
+                  <option value="180">↓ Hacia abajo</option>
+                  <option value="45">↗ Diagonal ascendente</option>
+                </select></span>
                 <div class="acento-vista" id="acento-vista" aria-hidden="true"></div>
               </div>
             </div>
@@ -121,6 +121,17 @@
                 <p class="nota">La imagen se guarda solo en este dispositivo; el resto de fondos viaja con tu cuenta.</p>
               </div>
               <p class="f-error" id="fondo-msg" role="alert"></p>
+            </div>
+          </div>
+
+          <div class="setting-card">
+            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s6 6.2 6 10.5a6 6 0 0 1-12 0C6 9.2 12 3 12 3z"/></svg></span>
+            <div class="setting-text">
+              <div class="setting-title">Difuminado de las tarjetas</div>
+              <div class="setting-desc">Efecto de cristal esmerilado (blur) en las tarjetas; se nota sobre fondos con color o imagen</div>
+            </div>
+            <div class="setting-control">
+              <label class="interruptor"><input type="checkbox" id="blur-chk" role="switch" aria-label="Difuminado de las tarjetas"><span class="riel" aria-hidden="true"></span></label>
             </div>
           </div>
 

@@ -114,7 +114,18 @@
     avisar();
   }
 
+  /* ---------- Difuminado (blur) de las tarjetas: activado por defecto ---------- */
+  var KEY_BLUR = "blur";
+  function leerBlur() { try { return localStorage.getItem(KEY_BLUR) !== "0"; } catch (e) { return true; } }
+  function aplicarBlur() { if (leerBlur()) root.removeAttribute("data-blur"); else root.setAttribute("data-blur", "off"); }
+  function setBlur(on) {
+    try { localStorage.setItem(KEY_BLUR, on ? "1" : "0"); } catch (e) { /* sin almacenamiento */ }
+    aplicarBlur();
+    avisar();
+  }
+
   apply();
+  aplicarBlur();
   aplicarAcento(leerAcento());
-  window.Theme = { get: read, set: set, getAccent: leerAcento, setAccent: setAcento };
+  window.Theme = { get: read, set: set, getAccent: leerAcento, setAccent: setAcento, getBlur: leerBlur, setBlur: setBlur };
 })();
