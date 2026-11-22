@@ -186,74 +186,62 @@
     if (!A || !bloque) return;
     if (A.estado() !== "usuario") { invitado.hidden = false; return; }
     bloque.hidden = false;
-    const cajas = Array.from(document.querySelectorAll('input[name="visibilidad"]'));
-    const caja = document.getElementById("vis-invitados-caja"), chk = document.getElementById("vis-invitados"), vmsg = document.getElementById("vis-msg");
-    let modos = ["todos"], cargado = false, ocupado = false, pendiente = false;
-    function pintar() {
-      cajas.forEach((c) => { c.checked = modos.indexOf(c.value) >= 0; });
-      caja.hidden = modos.indexOf("todos") < 0;
-    }
-    async function guardar() {
-      if (!cargado) return;
-      if (ocupado) { pendiente = true; return; }
-      ocupado = true; vmsg.textContent = "";
-      const r = await A.guardarVisibilidad(modos, modos.indexOf("todos") >= 0 && chk.checked);
-      ocupado = false;
-      if (!r.ok) vmsg.textContent = "No se pudo guardar. Inténtalo de nuevo.";
-      else { try { localStorage.setItem("vis-cambio", String(Date.now())); } catch (e) { /* nada */ } }
-      if (pendiente) { pendiente = false; guardar(); }
-    }
-    cajas.forEach((c) => c.addEventListener("change", () => {
-      if (c.checked) modos = c.value === "nadie" ? ["nadie"] : modos.filter((m) => m !== "nadie").concat(c.value);
-      else modos = modos.filter((m) => m !== c.value);
-      if (!modos.length) modos = ["nadie"];            // sin ninguna opción equivale a «Nadie»
-      if (modos.indexOf("todos") < 0) chk.checked = false;
-      pintar(); guardar();
-    }));
-    chk.addEventListener("change", guardar);
-    cajas.forEach((c) => { c.disabled = true; }); chk.disabled = true;
-    A.miVisibilidad().then((r) => {
-      if (r.ok) { modos = r.visibilidades; chk.checked = r.invitados; cargado = true; }
-      else vmsg.textContent = "No se pudo cargar tu visibilidad.";
-      cajas.forEach((x) => { x.disabled = !cargado; }); chk.disabled = !cargado;
+    const T = (s) => (window.I18n ? window.I18n.t(s) : s);
+    // Texto del resumen (lo elegido) que se ve en la fila plegada
+    const resumir = (cajas, el) => {
+      const n = cajas.filter((c) => c.checked).map((c) => T(c.parentElement.querySelector(".vis-titulo").textContent));
+      el.textContent = n.length ? n.join(", ") : "…";
+    };
+    // Un bloque de casillas que se guarda solo: (cajas, valor inicial, guardar(modos) -> promesa, mensaje, ...)
+    function bloqueModos(nombre, resumen, msgEl, guardarFn, extra) {
+      const cajas = Array.from(document.querySelectorAll('input[name="' + nombre + '"]'));
+      let modos = ["todos"], cargado = false, ocupado = false, pendiente = false;
+      function pintar() {
+        cajas.forEach((c) => { c.checked = modos.indexOf(c.value) >= 0; });
+        resumir(cajas, resumen);
+        if (extra && extra.pintar) extra.pintar(modos);
+      }
+      async function guardar() {
+        if (!cargado) return;
+        if (ocupado) { pendiente = true; return; }
+        ocupado = true; msgEl.textContent = "";
+        const r = await guardarFn(modos);
+        ocupado = false;
+        if (!r.ok) msgEl.textContent = "No se pudo guardar. Inténtalo de nuevo.";
+        else { try { localStorage.setItem("vis-cambio", String(Date.now())); } catch (e) { /* nada */ } }
+        if (pendiente) { pendiente = false; guardar(); }
+      }
+      cajas.forEach((c) => c.addEventListener("change", () => {
+        if (c.checked) modos = c.value === "nadie" ? ["nadie"] : modos.filter((m) => m !== "nadie").concat(c.value);
+        else modos = modos.filter((m) => m !== c.value);
+        if (!modos.length) modos = ["nadie"];            // sin ninguna opción equivale a «Nadie»
+        if (extra && extra.alCambiar) extra.alCambiar(modos);
+        pintar(); guardar();
+      }));
+      cajas.forEach((c) => { c.disabled = true; });
       pintar();
+      return {
+        cargar(valor, ok) { if (ok) { modos = valor; cargado = true; } else msgEl.textContent = "No se pudo cargar tu visibilidad."; cajas.forEach((x) => { x.disabled = !cargado; }); pintar(); },
+        guardar
+      };
+    }
+    const caja = document.getElementById("vis-invitados-caja"), chk = document.getElementById("vis-invitados");
+    const estadoBloque = bloqueModos("visibilidad", document.getElementById("vis-resumen"), document.getElementById("vis-msg"),
+      (m) => A.guardarVisibilidad(m, m.indexOf("todos") >= 0 && chk.checked),
+      { pintar: (m) => { caja.hidden = m.indexOf("todos") < 0; }, alCambiar: (m) => { if (m.indexOf("todos") < 0) chk.checked = false; } });
+    const segBloque = bloqueModos("vis-seg", document.getElementById("vis-seg-resumen"), document.getElementById("vis-seg-msg"),
+      (m) => A.guardarVisibilidadSeguim(m));
+    chk.addEventListener("change", () => estadoBloque.guardar());
+    chk.disabled = true;
+    A.miVisibilidad().then((r) => {
+      if (r.ok) chk.checked = r.invitados;
+      chk.disabled = !r.ok;
+      estadoBloque.cargar(r.visibilidades, r.ok);
+      segBloque.cargar(r.seguim, r.ok);
     });
-    pintar();
   })();
 
-  // ---------- Tarjeta flotante (ventana sobre la página) ----------
-  // Muestra "contenido" (un elemento) dentro de una tarjeta centrada; Escape, clic fuera o cerrar() la cierran.
-  function abrirTarjeta(titulo, contenido, foco, alCerrar) {
-    const abridor = document.activeElement;
-    const id = "tarjeta-titulo-" + Math.random().toString(36).slice(2, 7);
-    const h2 = document.createElement("h2"); h2.id = id; h2.textContent = window.I18n ? window.I18n.t(titulo) : titulo;
-    const tarjeta = document.createElement("div");
-    tarjeta.className = "tarjeta-flotante"; tarjeta.setAttribute("role", "dialog");
-    tarjeta.setAttribute("aria-modal", "true"); tarjeta.setAttribute("aria-labelledby", id);
-    tarjeta.append(h2, contenido);
-    const fondo = document.createElement("div"); fondo.className = "tarjeta-fondo"; fondo.appendChild(tarjeta);
-    const cerrar = () => {
-      window.removeEventListener("keydown", tecla, true);
-      fondo.remove();
-      if (alCerrar) alCerrar();
-      if (abridor && abridor.focus && document.body.contains(abridor)) abridor.focus();
-    };
-    function tecla(e) {
-      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cerrar(); }
-      else if (e.key === "Tab") {
-        const f = [...tarjeta.querySelectorAll("input,button,select")].filter((x) => !x.disabled && x.offsetParent !== null);
-        if (!f.length) return;
-        const i = f.indexOf(document.activeElement);
-        if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
-        else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
-      }
-    }
-    window.addEventListener("keydown", tecla, true);
-    fondo.addEventListener("pointerdown", (e) => { if (e.target === fondo) cerrar(); });
-    document.body.appendChild(fondo);
-    if (foco) foco.focus();
-    return { cerrar };
-  }
+  const abrirTarjeta = window.Tarjeta.abrir; // tarjeta flotante compartida (js/tarjeta.js)
 
   // ---------- Cuenta ----------
   const Auth = window.Auth;

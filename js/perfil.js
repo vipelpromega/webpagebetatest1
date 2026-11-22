@@ -19,11 +19,21 @@
       a.classList.add("inicial");
     }
   }
-  var ultimo = "", idPerfil = null, miembro = false, ocupado = false;
-  function plural(n, uno, varios) { return n + " " + t(n === 1 ? uno : varios); }
+  var ultimo = "", idPerfil = null, miembro = false, ocupado = false, verLista = false, nombrePerfil = "";
   function pintarSeguim(p) {
-    $("perfil-seguidores").textContent = plural(p.seguidores || 0, "seguidor", "seguidores");
-    $("perfil-siguiendo").textContent = (p.siguiendo || 0) + " " + t("siguiendo");
+    var ns = p.seguidores || 0, ng = p.siguiendo || 0;
+    $("perfil-seguidores-n").textContent = ns; $("perfil-seguidores-t").textContent = t(ns === 1 ? "seguidor" : "seguidores");
+    $("perfil-siguiendo-n").textContent = ng; $("perfil-siguiendo-t").textContent = t("siguiendo");
+    // La lista solo se puede abrir si su dueño la comparte con quien mira (los invitados no la ven)
+    verLista = !!p.ver_seguim;
+    [["perfil-seguidores-btn", "seguidores"], ["perfil-siguiendo-btn", "siguiendo"]].forEach(function (x) {
+      var btn = $(x[0]);
+      btn.disabled = !verLista;
+      btn.classList.toggle("privada", !verLista);
+      var txt = (x[1] === "seguidores" ? (ns === 1 ? t("seguidor") : t("seguidores")) : t("siguiendo"));
+      btn.setAttribute("aria-label", verLista ? t("Ver la lista") + ": " + txt : txt + " (" + t("Lista privada") + ")");
+      btn.title = verLista ? "" : t("Este usuario no comparte esta lista.");
+    });
     var b = $("perfil-seguir");
     b.hidden = !(miembro && !p.yo);
     b.dataset.sigo = p.sigo ? "1" : "";
@@ -32,7 +42,7 @@
     b.classList.toggle("secondary", !!p.sigo);
   }
   function pintar(r) {
-    var p = r.perfil; idPerfil = p.id;
+    var p = r.perfil; idPerfil = p.id; nombrePerfil = p.nombre;
     $("perfil-cab").hidden = false;
     var firma = [p.nombre, p.avatar ? p.avatar.length : 0, p.usuario].join("|");
     if (firma !== ultimo) { pintarAvatar($("perfil-avatar"), p); ultimo = firma; }
@@ -52,6 +62,34 @@
     $("perfil-editar").hidden = !p.yo;
     pintarSeguim(p);
     mostrarMsg("");
+  }
+
+  // Lista de seguidores / seguidos en una tarjeta flotante; cada fila lleva al perfil de esa persona
+  function abrirLista(tipo) {
+    if (!idPerfil || !verLista) return;
+    var cont = document.createElement("div"); cont.className = "seg-lista-caja";
+    var ul = document.createElement("ul"); ul.className = "seg-lista"; ul.setAttribute("aria-label", t(tipo === "seguidores" ? "Seguidores" : "Siguiendo"));
+    var vacio = document.createElement("p"); vacio.className = "nota"; vacio.textContent = t("Cargando…");
+    var cerrar = document.createElement("button"); cerrar.type = "button"; cerrar.className = "btn secondary"; cerrar.textContent = t("Cerrar");
+    var fila = document.createElement("div"); fila.className = "clave-botones"; fila.appendChild(cerrar);
+    cont.append(vacio, ul, fila);
+    var titulo = t(tipo === "seguidores" ? "Seguidores" : "Siguiendo") + " · " + nombrePerfil;
+    var tj = window.Tarjeta.abrir(titulo, cont, cerrar);
+    cerrar.addEventListener("click", tj.cerrar);
+    A.listaSeguimiento(idPerfil, tipo).then(function (r) {
+      if (!r.ok) { vacio.textContent = r.error === "privado" ? t("Este usuario no comparte esta lista.") : t("No se pudo cargar la lista."); return; }
+      if (!r.usuarios.length) { vacio.textContent = t(tipo === "seguidores" ? "Todavía no tiene seguidores." : "Todavía no sigue a nadie."); return; }
+      vacio.hidden = true;
+      r.usuarios.forEach(function (u) {
+        var li = document.createElement("li");
+        var a = document.createElement("a"); a.className = "seg-fila"; a.href = "perfil.html?id=" + encodeURIComponent(u.id);
+        var av = document.createElement("span"); av.className = "u-avatar seg-avatar"; av.setAttribute("aria-hidden", "true"); pintarAvatar(av, u);
+        var tx = document.createElement("span"); tx.className = "seg-texto";
+        var n = document.createElement("span"); n.className = "seg-nombre"; n.textContent = u.nombre;
+        var us = document.createElement("span"); us.className = "seg-usuario"; us.textContent = u.usuario ? "@" + u.usuario : "";
+        tx.append(n, us); a.append(av, tx); li.appendChild(a); ul.appendChild(li);
+      });
+    });
   }
   function cargar() {
     return A.perfilUsuario(id).then(function (r) {
@@ -78,6 +116,8 @@
   }
   document.addEventListener("DOMContentLoaded", function () {
     if (!A.estado()) return;
+    $("perfil-seguidores-btn").addEventListener("click", function () { abrirLista("seguidores"); });
+    $("perfil-siguiendo-btn").addEventListener("click", function () { abrirLista("siguiendo"); });
     $("perfil-seguir").addEventListener("click", function () {
       if (ocupado || !idPerfil) return;
       var b = this, quiere = b.dataset.sigo !== "1";

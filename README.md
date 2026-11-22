@@ -102,3 +102,6 @@ En cada perfil ajeno hay un botón **Seguir / Dejar de seguir** y un texto con l
 - **Seguidores:** los usuarios que te siguen pueden ver tu estado.
 
 Se pueden combinar entre sí y con las demás; los invitados solo ven el estado de quien eligió «Todos» y «visible para invitados». Las listas desplegables usan una lista propia (`js/desplegable.js`) que mantiene el `<select>` original como fuente del valor. El resaltado de texto seleccionado usa el color predeterminado del navegador. Vuelve a ejecutar `supabase/schema.sql` para crear la tabla y las funciones.
+
+### Lista de seguidores y seguidos
+En el perfil, «seguidores» y «siguiendo» son botones con icono; al pulsarlos se abre una tarjeta flotante con las personas (cada fila lleva a su perfil). Quién puede abrir esas listas se elige en Configuración → Visibilidad → «¿Quién puede ver tus seguidores y a quién sigues?» (mismas opciones que el estado, sin invitados; funciones `guardar_visibilidad_seguim` y `lista_seguimiento`). Los números siempre se ven. Las tarjetas de Visibilidad vienen plegadas y se despliegan al pulsar; la fila plegada resume lo elegido. Vuelve a ejecutar `supabase/schema.sql`.

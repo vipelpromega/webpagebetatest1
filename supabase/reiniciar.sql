@@ -47,6 +47,8 @@ drop function if exists public.guardar_visibilidad(text, text[], boolean);
 drop function if exists public.guardar_estado(text, text);
 drop function if exists public.desconectando(text);
 drop function if exists public.seguir(text, uuid, boolean);
+drop function if exists public.guardar_visibilidad_seguim(text, text[]);
+drop function if exists public.lista_seguimiento(text, uuid, text);
 drop function if exists public.perfil_usuario(text, uuid);
 drop function if exists public.guardar_visibilidad(text, text, boolean);
 drop function if exists public.lista_usuarios(text);

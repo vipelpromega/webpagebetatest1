@@ -102,22 +102,6 @@
 .subpanel { animation: m-arriba .35s var(--ease-out, ease) both; }
 .subpanel[hidden] { display: none; }
 
-/* ---------- Tarjeta flotante (cambiar nombre / contraseña) ---------- */
-.tarjeta-fondo {
-  position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 1rem;
-  background: rgba(0, 0, 0, .5); overflow-y: auto; animation: m-fundido .2s ease both;
-}
-.tarjeta-flotante {
-  width: min(100%, 420px); margin: auto; padding: 20px;
-  background: var(--flyout); border: 1px solid var(--border);
-  border-radius: var(--radius); box-shadow: var(--shadow-dialog);
-  animation: m-escala .3s var(--ease-out, ease) both;
-}
-.tarjeta-flotante h2 { margin: 0 0 12px; font-size: 18px; }
-.tarjeta-form, .clave-form { display: flex; flex-direction: column; gap: 4px; }
-.clave-form[hidden] { display: none; }
-.clave-botones { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
-
 .setting-icon.con-foto { width: 40px; height: 40px; }
 
 /* ---------- Color de acento ---------- */
@@ -265,3 +249,22 @@
 .interruptor input:checked + .riel { background: var(--accent-bg); border-color: var(--accent); }
 .interruptor input:checked + .riel::after { transform: translateX(20px); background: var(--on-accent, #fff); }
 .interruptor input:focus-visible + .riel { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); }
+
+/* ---------- Opciones plegables (Visibilidad) ---------- */
+.vis-det { flex: 1 0 100%; margin: 4px 0 0 40px; max-width: 560px; }
+.vis-sum {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; padding: 0 12px;
+  list-style: none; cursor: pointer; user-select: none; color: var(--text);
+  background: var(--field); border: 1px solid var(--field-border); border-radius: 6px; transition: background .1s;
+}
+.vis-sum::-webkit-details-marker { display: none; }
+.vis-sum:hover { background: var(--field-hover, var(--subtle-hover)); }
+.vis-sum:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.vis-det[open] > .vis-sum { border-bottom-color: var(--accent); }
+.vis-resumen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.vis-chev svg { display: block; width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .18s var(--ease-out, ease); }
+.vis-det[open] .vis-chev svg { transform: rotate(180deg); }
+.vis-cuerpo { padding-top: 8px; animation: m-arriba .25s var(--ease-out, ease) both; }
+.vis-det .vis-opciones, .vis-det .vis-invitados, .vis-det .vis-msg { margin-left: 0; max-width: none; }
+@media (max-width: 640px) { .vis-det { margin-left: 0; } }
+@media (prefers-reduced-motion: reduce) { .vis-cuerpo { animation: none; } .vis-chev svg { transition: none; } }

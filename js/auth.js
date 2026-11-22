@@ -446,7 +446,7 @@
     var s = leerSesion();
     if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
     return rpc("mi_visibilidad", { p_token: s.token }).then(function (r) {
-      return r.ok ? { ok: true, visibilidades: r.visibilidades || ["todos"], invitados: !!r.invitados, estado: r.estado || "en_linea" } : { ok: false, error: r.error || "error" };
+      return r.ok ? { ok: true, visibilidades: r.visibilidades || ["todos"], invitados: !!r.invitados, estado: r.estado || "en_linea", seguim: r.seguim || ["todos"] } : { ok: false, error: r.error || "error" };
     });
   }
   function guardarEstado(estado) {
@@ -454,6 +454,20 @@
     if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
     return rpc("guardar_estado", { p_token: s.token, p_estado: estado }).then(function (r) {
       return r.ok ? { ok: true, estado: r.estado } : { ok: false, error: r.error || "error" };
+    });
+  }
+  function guardarVisibilidadSeguim(modos) {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
+    return rpc("guardar_visibilidad_seguim", { p_token: s.token, p_modos: modos }).then(function (r) {
+      return r.ok ? { ok: true, seguim: r.seguim || [] } : { ok: false, error: r.error || "error" };
+    });
+  }
+  function listaSeguimiento(id, tipo) {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
+    return rpc("lista_seguimiento", { p_token: s.token, p_id: id, p_tipo: tipo }).then(function (r) {
+      return r.ok ? { ok: true, usuarios: r.usuarios || [] } : { ok: false, error: r.error || "error" };
     });
   }
   function guardarVisibilidad(modos, invitados) {
@@ -474,6 +488,8 @@
     miVisibilidad: miVisibilidad,
     guardarEstado: guardarEstado,
     guardarVisibilidad: guardarVisibilidad,
+    guardarVisibilidadSeguim: guardarVisibilidadSeguim,
+    listaSeguimiento: listaSeguimiento,
     preferenciasDeCuenta: preferenciasDeCuenta,
     guardarPreferenciasDeCuenta: guardarPreferenciasDeCuenta,
     historialDeAcceso: historialDeAcceso,

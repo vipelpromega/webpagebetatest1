@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="css/auth.css">
   <link rel="stylesheet" href="css/motion.css">
   <link rel="stylesheet" href="css/fondos.css">
+  <link rel="stylesheet" href="css/tarjeta.css">
   <link rel="stylesheet" href="css/perfil.css">
 </head>
 <body>
@@ -57,7 +58,14 @@
             <h2 id="perfil-nombre"></h2>
             <p class="perfil-usuario" id="perfil-usuario"></p>
             <p class="perfil-estado" id="perfil-estado"></p>
-            <p class="perfil-seguim" id="perfil-seguim"><span id="perfil-seguidores"></span> · <span id="perfil-siguiendo"></span></p>
+            <div class="perfil-seguim" id="perfil-seguim">
+              <button type="button" class="perfil-stat" id="perfil-seguidores-btn" aria-haspopup="dialog">
+                <span class="perfil-stat-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M18 14.4c2.2.7 3.5 2.4 3.5 5.6"/></svg></span><b id="perfil-seguidores-n">0</b><span class="perfil-stat-txt" id="perfil-seguidores-t">seguidores</span>
+              </button>
+              <button type="button" class="perfil-stat" id="perfil-siguiendo-btn" aria-haspopup="dialog">
+                <span class="perfil-stat-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6 1.6 0 3 .4 4.1 1.1"/><path d="M15 18.5l2.2 2.2 4-4.4"/></svg></span><b id="perfil-siguiendo-n">0</b><span class="perfil-stat-txt" id="perfil-siguiendo-t">siguiendo</span>
+              </button>
+            </div>
           </div>
         </div>
         <dl class="perfil-extra" id="perfil-extra" hidden>
@@ -72,6 +80,7 @@
     </main>
   </div>
 
+  <script src="js/tarjeta.js"></script>
   <script src="js/perfil.js"></script>
   <script src="js/preferencias.js"></script>
 </body>
