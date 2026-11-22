@@ -71,7 +71,7 @@
 
   /* ---------- Comunicación con el servidor ---------- */
   // Siempre devuelve un objeto { ok, ... }; nunca lanza errores.
-  function rpc(nombre, args) {
+  function rpc(nombre, args, opciones) {
     if (!CONFIGURADO) return Promise.resolve({ ok: false, error: "sin_config" });
 
     var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
@@ -82,6 +82,7 @@
       method: "POST",
       headers: { "apikey": cfg.clave, "Content-Type": "application/json" },
       body: JSON.stringify(args || {}),
+      keepalive: !!(opciones && opciones.keepalive),
       signal: ctl ? ctl.signal : undefined
     }).then(function (resp) {
       return resp.json().catch(function () { return null; }).then(function (datos) {
@@ -410,6 +411,18 @@
     if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
     return rpc("latido", { p_token: s.token });
   }
+  // Al cerrar la página: aviso inmediato (keepalive permite que la petición salga aunque la página se cierre)
+  function desconectando() {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
+    return rpc("desconectando", { p_token: s.token }, { keepalive: true });
+  }
+  function perfilUsuario(id) {
+    var s = leerSesion();
+    return rpc("perfil_usuario", { p_token: s ? s.token : null, p_id: id || null }).then(function (r) {
+      return r.ok ? { ok: true, miembro: !!r.miembro, perfil: r.perfil } : { ok: false, error: r.error || "error" };
+    });
+  }
   function listaUsuarios() {
     var s = leerSesion();
     return rpc("lista_usuarios", { p_token: s ? s.token : null }).then(function (r) {
@@ -446,6 +459,8 @@
 
   window.Auth = {
     latido: latido,
+    desconectando: desconectando,
+    perfilUsuario: perfilUsuario,
     listaUsuarios: listaUsuarios,
     estadosUsuarios: estadosUsuarios,
     miVisibilidad: miVisibilidad,
@@ -779,7 +794,6 @@
   }
 
   var ICONO_AJUSTES = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
-  var ICONO_FOTO = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 16l-5-5-8 8"/></svg>';
   var ICONO_SALIR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>';
 
   // En la barra, el botón de "Configuración" pasa a ser la foto del usuario;
@@ -828,8 +842,8 @@
     }
     function abrir() {
       var actual = usuarioActual() || u;
-      // Al pulsar la foto y el nombre se va al perfil (pestaña Cuenta de Configuración)
-      var cab = el("a", { class: "cuenta-cab", role: "menuitem", href: "configuracion.html#cuenta", "aria-label": "Ir a mi perfil" }, (function () { var a = el("span", {}); rellenarAvatar(a, actual, true); return a; })(),
+      // Al pulsar la foto y el nombre se va a la página de la cuenta (perfil)
+      var cab = el("a", { class: "cuenta-cab", role: "menuitem", href: "perfil.html", "aria-label": "Ir a mi perfil" }, (function () { var a = el("span", {}); rellenarAvatar(a, actual, true); return a; })(),
         el("div", { class: "cuenta-datos" }, el("strong", {}, actual.nombre), el("span", {}, "@" + actual.usuario)));
       // Estado de la cuenta
       var ESTADOS = [["en_linea", "En línea"], ["no_molestar", "No molestar"], ["desconectado", "Desconectado"]];
@@ -858,7 +872,6 @@
         el("div", { class: "cuenta-est-titulo" }, "Estado"), grupoEstado,
         el("div", { class: "side-divider", role: "separator" }),
         item("Configuración", ICONO_AJUSTES, null, "configuracion.html"),
-        item("Foto de perfil", ICONO_FOTO, null, "configuracion.html#foto"),
         el("div", { class: "side-divider", role: "separator" }),
         item("Cerrar sesión", ICONO_SALIR, function () { cerrar(false); cerrarSesion(); }));
       document.body.appendChild(menu);

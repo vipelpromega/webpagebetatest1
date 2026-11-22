@@ -142,6 +142,25 @@
       if (txt) txt.textContent = on ? t("En línea") : "";
       fila.dataset.estado = estado || "";
     }
+    // Los usuarios en línea van arriba; al cambiar el orden las filas se deslizan a su nuevo lugar
+    var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
+    function ordenar(animar) {
+      var items = Array.prototype.slice.call(lista.children);
+      var nuevo = items.slice().sort(function (a, b) {
+        var d = (b.classList.contains("online") ? 1 : 0) - (a.classList.contains("online") ? 1 : 0);
+        return d || a.dataset.nombre.localeCompare(b.dataset.nombre);
+      });
+      if (nuevo.every(function (x, i) { return x === items[i]; })) return;
+      var antes = new Map();
+      if (animar) items.forEach(function (x) { antes.set(x, x.getBoundingClientRect().top); });
+      nuevo.forEach(function (x) { lista.appendChild(x); });
+      if (!animar || (reducido && reducido.matches) || !items[0].animate) return;
+      nuevo.forEach(function (x) {
+        var dy = antes.get(x) - x.getBoundingClientRect().top;
+        if (Math.abs(dy) < 1) return;
+        x.animate([{ transform: "translateY(" + dy + "px)" }, { transform: "translateY(0)" }], { duration: 480, easing: "cubic-bezier(.2,.8,.2,1)" });
+      });
+    }
     function contar() {
       var n = Object.keys(filas).length, on = lista.querySelectorAll(".online").length;
       resumen.textContent = n + (n === 1 ? " " + t("usuario") : " " + t("usuarios")) + (lista.querySelector("[data-estado]:not([data-estado=''])") ? " · " + on + " " + t("en línea") : "");
@@ -159,11 +178,16 @@
         var nom = document.createElement("span"); nom.className = "u-nombre"; nom.textContent = u.nombre + (u.yo ? " (" + t("tú") + ")" : "");
         var sub = document.createElement("span"); sub.className = "u-estado";
         datos.appendChild(nom); datos.appendChild(sub);
-        li.appendChild(caja); li.appendChild(datos);
+        // Cada usuario es un enlace a la página de su cuenta
+        var enlace = document.createElement("a"); enlace.className = "u-enlace"; enlace.href = "perfil.html?id=" + encodeURIComponent(u.id);
+        enlace.setAttribute("aria-label", t("Ver perfil de") + " " + u.nombre);
+        enlace.appendChild(caja); enlace.appendChild(datos);
+        li.appendChild(enlace); li.dataset.nombre = (u.nombre || "").toLowerCase();
         lista.appendChild(li); filas[u.id] = li;
         pintarEstado(li, u.estado);
       });
       ids = r.usuarios.map(function (u) { return u.id; }).join(",");
+      ordenar(false);
       vacio.hidden = r.usuarios.length > 0;
       if (!r.usuarios.length) vacio.textContent = r.miembro ? t("Todavía no hay usuarios registrados.") : t("Nadie ha activado ser visible para invitados.");
       contar();
@@ -183,6 +207,7 @@
         var mismos = nuevos.split(",").sort().join(",") === ids.split(",").sort().join(",");
         if (!mismos) { cargar(); return; }
         r.estados.forEach(function (x) { if (filas[x.id]) pintarEstado(filas[x.id], x.estado); });
+        ordenar(true);
         contar();
       });
     }
@@ -190,7 +215,7 @@
       var st = window.Auth.estado();
       if (!st) return;
       cargar();
-      temporizador = setInterval(refrescar, 5000);
+      temporizador = setInterval(refrescar, 2000);
       window.addEventListener("storage", function (e) { if (e.key === "vis-cambio") refrescar(); });
       document.addEventListener("visibilitychange", function () { if (!document.hidden) refrescar(); });
     });

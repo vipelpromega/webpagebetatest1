@@ -722,9 +722,18 @@ alter table public.usuarios add constraint usuarios_visibilidades_check
 alter table public.usuarios add column if not exists visible_invitados boolean not null default false;
 alter table public.usuarios add column if not exists visto timestamptz;
 -- Estado elegido por la persona: en_linea, no_molestar (aún no hace nada) o desconectado (se muestra desconectada aunque esté usando la página)
+-- «Saliendo»: instante en que se cerró la última página abierta. Si es posterior al último latido, se muestra desconectado al momento.
+alter table public.usuarios add column if not exists saliendo timestamptz;
 alter table public.usuarios add column if not exists estado_manual text not null default 'en_linea';
 alter table public.usuarios drop constraint if exists usuarios_estado_manual_check;
 alter table public.usuarios add constraint usuarios_estado_manual_check check (estado_manual in ('en_linea', 'no_molestar', 'desconectado'));
+
+
+-- ¿Se considera en línea? Latido reciente, sin salida posterior y sin haber elegido «Desconectado»
+create or replace function privado.en_linea(p_visto timestamptz, p_saliendo timestamptz, p_estado text)
+returns boolean language sql stable set search_path = '' as $$
+  select coalesce(p_visto > now() - interval '45 seconds' and (p_saliendo is null or p_visto > p_saliendo) and p_estado <> 'desconectado', false)
+$$;
 
 -- Latido: la página lo envía cada 20 s mientras está abierta y visible. Online = latido en los últimos 45 s.
 create or replace function public.latido(p_token text)
@@ -735,7 +744,7 @@ begin
   if v.id is null then
     return jsonb_build_object('ok', false, 'error', 'sesion');
   end if;
-  update public.usuarios set visto = now() where id = v.id and (visto is null or visto < now() - interval '15 seconds');
+  update public.usuarios set visto = now() where id = v.id and (visto is null or visto < now() - interval '15 seconds' or (saliendo is not null and saliendo >= visto));
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -791,6 +800,52 @@ begin
   return jsonb_build_object('ok', true, 'estado', p_estado);
 end $$;
 
+
+-- Aviso de que se cierra la página: se muestra desconectado de inmediato (si abre otra página, su latido lo vuelve a poner en línea)
+create or replace function public.desconectando(p_token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  update public.usuarios set saliendo = now() where id = v.id;
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- Perfil de un usuario (para la página de cuenta). Mismas reglas de visibilidad que la lista.
+create or replace function public.perfil_usuario(p_token text default null, p_id uuid default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v public.usuarios;
+  u public.usuarios;
+  v_miembro boolean;
+  v_ver boolean;
+begin
+  v := privado.usuario_de_token(p_token);
+  v_miembro := v.id is not null;
+  if not v_miembro and p_token is not null and p_token <> '' then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  if p_id is null then
+    if not v_miembro then return jsonb_build_object('ok', false, 'error', 'no_existe'); end if;
+    p_id := v.id;
+  end if;
+  select * into u from public.usuarios where id = p_id and not suspendida;
+  if u.id is null then
+    return jsonb_build_object('ok', false, 'error', 'no_existe');
+  end if;
+  v_ver := (v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados));
+  return jsonb_build_object('ok', true, 'miembro', v_miembro,
+    'perfil', jsonb_build_object(
+      'id', u.id, 'nombre', u.nombre, 'avatar', u.avatar,
+      'usuario', case when v_miembro then u.usuario end,
+      'desde', case when v_miembro then u.creado end,
+      'yo', v_miembro and u.id = v.id,
+      'estado', case when v_ver and privado.en_linea(u.visto, u.saliendo, u.estado_manual) then 'online' else 'offline' end));
+end $$;
+
 -- Usuarios registrados con foto, nombre y estado ('online' / 'offline').
 -- Quien no puede ver el estado de alguien lo ve siempre «offline» (no se revela nada):
 --  · Con sesión: el estado real solo de quien eligió «Todos» (y el propio siempre).
@@ -812,14 +867,14 @@ begin
       select u.id, u.nombre, u.avatar,
              case when v_miembro then u.usuario end as usuario,
              case
-               when u.visto > now() - interval '45 seconds' and u.estado_manual <> 'desconectado'
+               when privado.en_linea(u.visto, u.saliendo, u.estado_manual)
                 and ((v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados)))
                  then 'online' else 'offline'
              end as estado,
              (v_miembro and u.id = v.id) as yo
         from public.usuarios u
        where not u.suspendida
-       order by coalesce(u.visto > now() - interval '45 seconds' and u.estado_manual <> 'desconectado'
+       order by coalesce(privado.en_linea(u.visto, u.saliendo, u.estado_manual)
                  and ((v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados))), false) desc,
                 lower(u.nombre), u.id
        limit 60) x), '[]'::jsonb));
@@ -840,7 +895,7 @@ begin
   return jsonb_build_object('ok', true, 'estados', coalesce((
     select jsonb_agg(jsonb_build_object('id', u.id,
              'estado', case
-               when u.visto > now() - interval '45 seconds' and u.estado_manual <> 'desconectado'
+               when privado.en_linea(u.visto, u.saliendo, u.estado_manual)
                 and ((v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados)))
                  then 'online' else 'offline'
              end))
@@ -1413,6 +1468,8 @@ revoke all on function public.mi_historial(text)                   from public, 
 revoke all on function public.latido(text)                          from public, anon, authenticated;
 revoke all on function public.mi_visibilidad(text)                  from public, anon, authenticated;
 revoke all on function public.guardar_estado(text, text)            from public, anon, authenticated;
+revoke all on function public.desconectando(text)                   from public, anon, authenticated;
+revoke all on function public.perfil_usuario(text, uuid)            from public, anon, authenticated;
 revoke all on function public.guardar_visibilidad(text, text[], boolean) from public, anon, authenticated;
 revoke all on function public.lista_usuarios(text)                  from public, anon, authenticated;
 revoke all on function public.estados_usuarios(text)                from public, anon, authenticated;
@@ -1439,6 +1496,8 @@ grant execute on function public.mi_historial(text)                to anon, auth
 grant execute on function public.latido(text)                       to anon, authenticated;
 grant execute on function public.mi_visibilidad(text)               to anon, authenticated;
 grant execute on function public.guardar_estado(text, text)         to anon, authenticated;
+grant execute on function public.desconectando(text)                to anon, authenticated;
+grant execute on function public.perfil_usuario(text, uuid)         to anon, authenticated;
 grant execute on function public.guardar_visibilidad(text, text[], boolean) to anon, authenticated;
 grant execute on function public.lista_usuarios(text)               to anon, authenticated;
 grant execute on function public.estados_usuarios(text)             to anon, authenticated;
