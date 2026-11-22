@@ -142,10 +142,10 @@
               <div class="setting-desc">Elige el idioma de la página</div>
             </div>
             <div class="setting-control">
-              <div class="segmented" role="group" aria-label="Idioma">
-                <button type="button" class="seg" data-idioma="es" aria-pressed="false" lang="es">Español</button>
-                <button type="button" class="seg" data-idioma="en" aria-pressed="false" lang="en">English</button>
-              </div>
+              <span class="desplegable"><select id="idioma-select" aria-label="Idioma">
+                <option value="es" lang="es">Español</option>
+                <option value="en" lang="en">English</option>
+              </select></span>
             </div>
           </div>
         </div>
@@ -182,15 +182,12 @@
             <div class="setting-card">
               <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span>
               <div class="setting-text">
-                <label class="setting-title" for="nuevo-nombre">Nombre de visualización:</label>
+                <div class="setting-title">Nombre de visualización:</div>
                 <div class="setting-desc">Puede cambiarlo cuando quiera</div>
                 <p class="f-error" id="cuenta-msg" role="status"></p>
               </div>
               <div class="setting-control">
-                <div class="f-box">
-                  <input class="f-input" id="nuevo-nombre" type="text" maxlength="30" autocomplete="off">
-                </div>
-                <button class="btn" id="guardar-nombre" type="button">Guardar</button>
+                <button class="btn" id="nombre-abrir" type="button" aria-haspopup="dialog">Cambiar nombre</button>
               </div>
             </div>
 
@@ -202,7 +199,7 @@
                 <p class="f-error" id="clave-msg" role="status"></p>
               </div>
               <div class="setting-control">
-                <button class="btn" id="clave-abrir" type="button" aria-expanded="false" aria-controls="clave-form">Cambiar contraseña</button>
+                <button class="btn" id="clave-abrir" type="button" aria-haspopup="dialog">Cambiar contraseña</button>
               </div>
             </div>
 

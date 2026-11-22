@@ -989,19 +989,25 @@ begin
 end $$;
 
 -- C) Crear una clave (se devuelve completa UNA sola vez; en la base solo queda su huella)
-create or replace function public.admin_crear_clave(p_nombre text)
+drop function if exists public.admin_crear_clave(text);
+create or replace function public.admin_crear_clave(p_nombre text, p_maestra text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_admin  uuid := privado.admin_id();
   v_nombre text := btrim(coalesce(p_nombre, ''));
   v_gen    jsonb;
   v_id     uuid;
+  v_err    jsonb;
 begin
   if v_admin is null then
     return jsonb_build_object('ok', false, 'error', 'no_autorizado');
   end if;
   if char_length(v_nombre) not between 2 and 80 or v_nombre !~ '[[:alpha:]]' then
     return jsonb_build_object('ok', false, 'error', 'nombre_formato');
+  end if;
+  v_err := privado.verificar_maestra(v_admin, p_maestra);   -- crear una clave exige la contraseña maestra
+  if v_err is not null then
+    return v_err;
   end if;
 
   v_gen := privado.generar_clave(v_nombre);
@@ -1510,7 +1516,7 @@ grant execute on function public.cerrar_otras_sesiones(text)       to anon, auth
 -- Panel de administración: SOLO "authenticated" (y aun así exigen ser admin + 2 pasos)
 revoke all on function public.admin_yo()                           from public, anon, authenticated;
 revoke all on function public.admin_estado()                       from public, anon, authenticated;
-revoke all on function public.admin_crear_clave(text)              from public, anon, authenticated;
+revoke all on function public.admin_crear_clave(text, text)        from public, anon, authenticated;
 revoke all on function public.admin_listar_claves()                from public, anon, authenticated;
 revoke all on function public.admin_borrar_clave(uuid, text)       from public, anon, authenticated;
 revoke all on function public.admin_ver_clave(uuid)                from public, anon, authenticated;
@@ -1524,7 +1530,7 @@ revoke all on function public.admin_consola(text)                  from public, 
 
 grant execute on function public.admin_yo()                        to authenticated;
 grant execute on function public.admin_estado()                    to authenticated;
-grant execute on function public.admin_crear_clave(text)           to authenticated;
+grant execute on function public.admin_crear_clave(text, text)     to authenticated;
 grant execute on function public.admin_listar_claves()             to authenticated;
 grant execute on function public.admin_borrar_clave(uuid, text)    to authenticated;
 grant execute on function public.admin_ver_clave(uuid)             to authenticated;

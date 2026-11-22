@@ -88,3 +88,8 @@ en su botón de la barra lateral).
 - **Perfil** (`perfil.html`, el tuyo; `perfil.html?id=<id>` el de otro usuario): foto, nombre, estado y, para usuarios registrados, @usuario y «Miembro desde». Los invitados ven una versión limitada. Función `perfil_usuario`; si el perfil no existe o está suspendido se muestra un aviso.
 - **Países de acceso** (administrador): el servidor guarda el país de cada acceso si la petición trae la cabecera `cf-ipcountry` (Supabase pasa por Cloudflare). Si no llega, aparece como «Desconocido».
 - Vuelve a ejecutar `supabase/schema.sql` (no hace falta `reiniciar.sql`).
+
+
+## Configuración: tarjetas flotantes y lista de idioma
+
+En **Cuenta**, «Cambiar nombre» y «Cambiar contraseña» abren una tarjeta flotante (Escape, clic fuera o «Cancelar» la cierran). El **idioma** se elige en una lista desplegable. Desde el panel de administración, crear una clave ahora exige también la contraseña maestra (`admin_crear_clave(p_nombre, p_maestra)`; vuelve a ejecutar `supabase/schema.sql`).

@@ -125,7 +125,7 @@
     "Estado": "Status", "No molestar": "Do not disturb", "Ir a mi perfil": "Go to my profile", "Estado de tu cuenta": "Your account status",
     "Difuminado de las tarjetas": "Card blur", "Efecto de cristal esmerilado (blur) en las tarjetas; se nota sobre fondos con color o imagen": "Frosted-glass (blur) effect on cards; most visible over colored or image backgrounds",
     "Dirección del degradado": "Gradient direction", "→ Hacia la derecha": "→ To the right", "↘ Diagonal descendente": "↘ Diagonal down", "↓ Hacia abajo": "↓ Downwards", "↗ Diagonal ascendente": "↗ Diagonal up",
-    "Ver perfil de": "View profile of", "Perfil": "Profile", "Tu cuenta": "Your account", "Información de la cuenta": "Account information", "Miembro desde": "Member since",
+    "Ver perfil de": "View profile of", "Cambiar nombre": "Change name", "Perfil": "Profile", "Tu cuenta": "Your account", "Información de la cuenta": "Account information", "Miembro desde": "Member since",
     "Editar mi perfil": "Edit my profile", "Volver a Principal": "Back to Home", "Este perfil no existe o no está disponible.": "This profile doesn't exist or isn't available.", "No se pudo cargar el perfil.": "Couldn't load the profile.",
     "Usuarios": "Users", "usuario": "user", "usuarios": "users", "en línea": "online", "En línea": "Online", "tú": "you", "Desconectado": "Offline",
     "Todavía no hay usuarios registrados.": "There are no registered users yet.", "Nadie ha activado ser visible para invitados.": "Nobody has made themselves visible to guests.",

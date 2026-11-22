@@ -14,13 +14,11 @@
   window.addEventListener("prefs-cambio", () => { refresh(); refreshBlur(); });
 
   // ---------- Idioma ----------
-  const idiomaBtns = document.querySelectorAll("[data-idioma]");
-  idiomaBtns.forEach((btn) => {
-    const act = window.I18n && btn.dataset.idioma === window.I18n.get();
-    btn.classList.toggle("selected", !!act);
-    btn.setAttribute("aria-pressed", String(!!act));
-    btn.addEventListener("click", () => { if (window.I18n && btn.dataset.idioma !== window.I18n.get()) window.I18n.set(btn.dataset.idioma); });
-  });
+  const idiomaSel = document.getElementById("idioma-select");
+  if (idiomaSel && window.I18n) {
+    idiomaSel.value = window.I18n.get();
+    idiomaSel.addEventListener("change", () => { if (idiomaSel.value !== window.I18n.get()) window.I18n.set(idiomaSel.value); });
+  }
 
   // ---------- Color de acento ----------
   const RECOM = [
@@ -223,6 +221,40 @@
     pintar();
   })();
 
+  // ---------- Tarjeta flotante (ventana sobre la página) ----------
+  // Muestra "contenido" (un elemento) dentro de una tarjeta centrada; Escape, clic fuera o cerrar() la cierran.
+  function abrirTarjeta(titulo, contenido, foco, alCerrar) {
+    const abridor = document.activeElement;
+    const id = "tarjeta-titulo-" + Math.random().toString(36).slice(2, 7);
+    const h2 = document.createElement("h2"); h2.id = id; h2.textContent = window.I18n ? window.I18n.t(titulo) : titulo;
+    const tarjeta = document.createElement("div");
+    tarjeta.className = "tarjeta-flotante"; tarjeta.setAttribute("role", "dialog");
+    tarjeta.setAttribute("aria-modal", "true"); tarjeta.setAttribute("aria-labelledby", id);
+    tarjeta.append(h2, contenido);
+    const fondo = document.createElement("div"); fondo.className = "tarjeta-fondo"; fondo.appendChild(tarjeta);
+    const cerrar = () => {
+      window.removeEventListener("keydown", tecla, true);
+      fondo.remove();
+      if (alCerrar) alCerrar();
+      if (abridor && abridor.focus && document.body.contains(abridor)) abridor.focus();
+    };
+    function tecla(e) {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cerrar(); }
+      else if (e.key === "Tab") {
+        const f = [...tarjeta.querySelectorAll("input,button,select")].filter((x) => !x.disabled && x.offsetParent !== null);
+        if (!f.length) return;
+        const i = f.indexOf(document.activeElement);
+        if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+        else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
+      }
+    }
+    window.addEventListener("keydown", tecla, true);
+    fondo.addEventListener("pointerdown", (e) => { if (e.target === fondo) cerrar(); });
+    document.body.appendChild(fondo);
+    if (foco) foco.focus();
+    return { cerrar };
+  }
+
   // ---------- Cuenta ----------
   const Auth = window.Auth;
   if (!Auth) return;
@@ -230,7 +262,6 @@
   const info = document.getElementById("cuenta-info");
   const bloqueMiembro = document.getElementById("cuenta-miembro");
   const bloqueInvitado = document.getElementById("cuenta-invitado");
-  const inputNombre = document.getElementById("nuevo-nombre");
   const msg = document.getElementById("cuenta-msg");
 
   const estado = Auth.estado();
@@ -238,19 +269,34 @@
   if (estado === "usuario") {
     const u = Auth.usuario();
     info.textContent = `Sesión iniciada como @${u.usuario}.`;
-    inputNombre.value = u.nombre;
     bloqueMiembro.hidden = false;
 
-    const guardarBtn = document.getElementById("guardar-nombre");
-    guardarBtn.addEventListener("click", async () => {
-      guardarBtn.disabled = true;
-      msg.classList.remove("ok");
-      msg.textContent = "";
-      const r = await Auth.cambiarNombre(inputNombre.value);
-      guardarBtn.disabled = false;
-      msg.classList.toggle("ok", r.ok);
-      msg.textContent = r.ok ? "Nombre actualizado." : r.error;
-      if (r.ok) inputNombre.value = r.nombre;
+    const nombreAbrir = document.getElementById("nombre-abrir");
+    nombreAbrir.addEventListener("click", () => {
+      const T = (s) => (window.I18n ? window.I18n.t(s) : s);
+      const campo = document.createElement("input");
+      campo.className = "f-input"; campo.type = "text"; campo.id = "nuevo-nombre"; campo.maxLength = 30;
+      campo.autocomplete = "off"; campo.value = Auth.usuario().nombre;
+      const caja = document.createElement("div"); caja.className = "f-box"; caja.appendChild(campo);
+      const etiqueta = document.createElement("label"); etiqueta.className = "f-label"; etiqueta.htmlFor = "nuevo-nombre"; etiqueta.textContent = T("Nombre de visualización:");
+      const error = document.createElement("p"); error.className = "f-error"; error.setAttribute("role", "alert");
+      const guardar = document.createElement("button"); guardar.type = "submit"; guardar.className = "btn"; guardar.id = "guardar-nombre"; guardar.textContent = T("Guardar");
+      const cancelar = document.createElement("button"); cancelar.type = "button"; cancelar.className = "btn secondary"; cancelar.textContent = T("Cancelar");
+      const botones = document.createElement("div"); botones.className = "clave-botones"; botones.append(guardar, cancelar);
+      const f = document.createElement("form"); f.className = "tarjeta-form"; f.noValidate = true; f.autocomplete = "off";
+      f.append(etiqueta, caja, error, botones);
+      const t = abrirTarjeta("Cambiar nombre", f, campo);
+      campo.select();
+      cancelar.addEventListener("click", t.cerrar);
+      f.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        error.textContent = ""; guardar.disabled = true;
+        const r = await Auth.cambiarNombre(campo.value);
+        guardar.disabled = false;
+        if (!r.ok) { error.textContent = r.error; campo.focus(); return; }
+        t.cerrar();
+        msg.classList.add("ok"); msg.textContent = T("Nombre actualizado.");
+      });
     });
 
     const fotoMsg = document.getElementById("foto-msg");
@@ -297,16 +343,21 @@
       });
       input.parentElement.appendChild(ver);
     });
+    const marcador = document.createComment("clave-form");
+    form.parentNode.insertBefore(marcador, form);
+    let tarjetaClave = null;
     const cerrarForm = () => {
+      if (tarjetaClave) { const t = tarjetaClave; tarjetaClave = null; t.cerrar(); }
+    };
+    const limpiarForm = () => {
       form.hidden = true; form.reset(); formMsg.textContent = "";
       campos.forEach((i) => { i.type = "password"; });
-      abrir.setAttribute("aria-expanded", "false");
+      marcador.parentNode.insertBefore(form, marcador.nextSibling);
     };
     abrir.addEventListener("click", () => {
-      if (!form.hidden) { cerrarForm(); return; }
       claveMsg.textContent = ""; claveMsg.classList.remove("ok");
-      form.hidden = false; abrir.setAttribute("aria-expanded", "true");
-      campos[0].focus();
+      form.hidden = false;
+      tarjetaClave = abrirTarjeta("Cambiar contraseña", form, campos[0], () => { tarjetaClave = null; limpiarForm(); });
     });
     document.getElementById("clave-cancelar").addEventListener("click", cerrarForm);
     form.addEventListener("submit", async (e) => {
