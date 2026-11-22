@@ -801,6 +801,59 @@ begin
 end $$;
 
 
+-- Seguimientos: «seguidor» sigue a «seguido». Solo se tocan desde las funciones (seguir, perfil_usuario...).
+create table if not exists public.seguimientos (
+  seguidor uuid not null references public.usuarios(id) on delete cascade,
+  seguido  uuid not null references public.usuarios(id) on delete cascade,
+  creado   timestamptz not null default now(),
+  primary key (seguidor, seguido),
+  check (seguidor <> seguido)
+);
+create index if not exists seguimientos_seguido_idx on public.seguimientos (seguido);
+alter table public.seguimientos enable row level security;
+revoke all on table public.seguimientos from public, anon, authenticated;
+
+-- ¿Puede quien mira (v_id, o un invitado) ver el estado real de «u»?
+--  · El propio estado siempre.
+--  · «Todos»: cualquier usuario con sesión (un invitado, solo si «visible para invitados»).
+--  · «Personas que sigo»: los usuarios a los que «u» sigue.
+--  · «Seguidores»: los usuarios que siguen a «u».
+create or replace function privado.ve_estado(p_u uuid, p_vis text[], p_invitados boolean, p_v uuid, p_miembro boolean)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select case
+    when p_miembro then
+      p_u = p_v
+      or 'todos' = any (p_vis)
+      or ('seguidos' = any (p_vis) and exists (select 1 from public.seguimientos s where s.seguidor = p_u and s.seguido = p_v))
+      or ('seguidores' = any (p_vis) and exists (select 1 from public.seguimientos s where s.seguidor = p_v and s.seguido = p_u))
+    else 'todos' = any (p_vis) and p_invitados
+  end
+$$;
+
+-- Seguir / dejar de seguir a un usuario
+create or replace function public.seguir(p_token text, p_id uuid, p_seguir boolean default true)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  if p_id is null or p_id = v.id then
+    return jsonb_build_object('ok', false, 'error', 'propio');
+  end if;
+  if not exists (select 1 from public.usuarios where id = p_id and not suspendida) then
+    return jsonb_build_object('ok', false, 'error', 'no_existe');
+  end if;
+  if coalesce(p_seguir, true) then
+    insert into public.seguimientos (seguidor, seguido) values (v.id, p_id) on conflict do nothing;
+  else
+    delete from public.seguimientos where seguidor = v.id and seguido = p_id;
+  end if;
+  return jsonb_build_object('ok', true, 'sigo', coalesce(p_seguir, true),
+    'seguidores', (select count(*) from public.seguimientos s join public.usuarios x on x.id = s.seguidor where s.seguido = p_id and not x.suspendida));
+end $$;
+
 -- Aviso de que se cierra la página: se muestra desconectado de inmediato (si abre otra página, su latido lo vuelve a poner en línea)
 create or replace function public.desconectando(p_token text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -836,21 +889,24 @@ begin
   if u.id is null then
     return jsonb_build_object('ok', false, 'error', 'no_existe');
   end if;
-  v_ver := (v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados));
+  v_ver := privado.ve_estado(u.id, u.visibilidades, u.visible_invitados, v.id, v_miembro);
   return jsonb_build_object('ok', true, 'miembro', v_miembro,
     'perfil', jsonb_build_object(
       'id', u.id, 'nombre', u.nombre, 'avatar', u.avatar,
       'usuario', case when v_miembro then u.usuario end,
       'desde', case when v_miembro then u.creado end,
       'yo', v_miembro and u.id = v.id,
+      'seguidores', (select count(*) from public.seguimientos s join public.usuarios x on x.id = s.seguidor where s.seguido = u.id and not x.suspendida),
+      'siguiendo',  (select count(*) from public.seguimientos s join public.usuarios x on x.id = s.seguido where s.seguidor = u.id and not x.suspendida),
+      'sigo', v_miembro and exists (select 1 from public.seguimientos s where s.seguidor = v.id and s.seguido = u.id),
       'estado', case when v_ver and privado.en_linea(u.visto, u.saliendo, u.estado_manual) then 'online' else 'offline' end));
 end $$;
 
 -- Usuarios registrados con foto, nombre y estado ('online' / 'offline').
 -- Quien no puede ver el estado de alguien lo ve siempre «offline» (no se revela nada):
---  · Con sesión: el estado real solo de quien eligió «Todos» (y el propio siempre).
+--  · Con sesión: el estado real de quien eligió «Todos», o «Personas que sigo»/«Seguidores» si corresponde (y el propio siempre).
 --  · Invitado (sin token): el estado real solo de quien eligió «Todos» + «visible para invitados».
--- Amigos, Mejores amigos, Personas que sigo y Seguidores aún no hacen nada: no muestran el estado.
+-- «Personas que sigo» y «Seguidores» muestran el estado a quien corresponda (ver privado.ve_estado); Amigos y Mejores amigos aún no hacen nada.
 create or replace function public.lista_usuarios(p_token text default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -868,14 +924,14 @@ begin
              case when v_miembro then u.usuario end as usuario,
              case
                when privado.en_linea(u.visto, u.saliendo, u.estado_manual)
-                and ((v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados)))
+                and privado.ve_estado(u.id, u.visibilidades, u.visible_invitados, v.id, v_miembro)
                  then 'online' else 'offline'
              end as estado,
              (v_miembro and u.id = v.id) as yo
         from public.usuarios u
        where not u.suspendida
        order by coalesce(privado.en_linea(u.visto, u.saliendo, u.estado_manual)
-                 and ((v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados))), false) desc,
+                 and privado.ve_estado(u.id, u.visibilidades, u.visible_invitados, v.id, v_miembro), false) desc,
                 lower(u.nombre), u.id
        limit 60) x), '[]'::jsonb));
 end $$;
@@ -896,7 +952,7 @@ begin
     select jsonb_agg(jsonb_build_object('id', u.id,
              'estado', case
                when privado.en_linea(u.visto, u.saliendo, u.estado_manual)
-                and ((v_miembro and u.id = v.id) or ('todos' = any (u.visibilidades) and (v_miembro or u.visible_invitados)))
+                and privado.ve_estado(u.id, u.visibilidades, u.visible_invitados, v.id, v_miembro)
                  then 'online' else 'offline'
              end))
       from (select * from public.usuarios u0 where not u0.suspendida order by lower(u0.nombre), u0.id limit 60) u), '[]'::jsonb));
@@ -1475,6 +1531,7 @@ revoke all on function public.latido(text)                          from public,
 revoke all on function public.mi_visibilidad(text)                  from public, anon, authenticated;
 revoke all on function public.guardar_estado(text, text)            from public, anon, authenticated;
 revoke all on function public.desconectando(text)                   from public, anon, authenticated;
+revoke all on function public.seguir(text, uuid, boolean)           from public, anon, authenticated;
 revoke all on function public.perfil_usuario(text, uuid)            from public, anon, authenticated;
 revoke all on function public.guardar_visibilidad(text, text[], boolean) from public, anon, authenticated;
 revoke all on function public.lista_usuarios(text)                  from public, anon, authenticated;
@@ -1503,6 +1560,7 @@ grant execute on function public.latido(text)                       to anon, aut
 grant execute on function public.mi_visibilidad(text)               to anon, authenticated;
 grant execute on function public.guardar_estado(text, text)         to anon, authenticated;
 grant execute on function public.desconectando(text)                to anon, authenticated;
+grant execute on function public.seguir(text, uuid, boolean)        to anon, authenticated;
 grant execute on function public.perfil_usuario(text, uuid)         to anon, authenticated;
 grant execute on function public.guardar_visibilidad(text, text[], boolean) to anon, authenticated;
 grant execute on function public.lista_usuarios(text)               to anon, authenticated;

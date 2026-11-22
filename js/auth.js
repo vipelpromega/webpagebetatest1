@@ -423,6 +423,13 @@
       return r.ok ? { ok: true, miembro: !!r.miembro, perfil: r.perfil } : { ok: false, error: r.error || "error" };
     });
   }
+  function seguir(id, sigo) {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
+    return rpc("seguir", { p_token: s.token, p_id: id, p_seguir: !!sigo }).then(function (r) {
+      return r.ok ? { ok: true, sigo: !!r.sigo, seguidores: Number(r.seguidores) || 0 } : { ok: false, error: r.error || "error" };
+    });
+  }
   function listaUsuarios() {
     var s = leerSesion();
     return rpc("lista_usuarios", { p_token: s ? s.token : null }).then(function (r) {
@@ -461,6 +468,7 @@
     latido: latido,
     desconectando: desconectando,
     perfilUsuario: perfilUsuario,
+    seguir: seguir,
     listaUsuarios: listaUsuarios,
     estadosUsuarios: estadosUsuarios,
     miVisibilidad: miVisibilidad,

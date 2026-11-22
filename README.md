@@ -93,3 +93,12 @@ en su botón de la barra lateral).
 ## Configuración: tarjetas flotantes y lista de idioma
 
 En **Cuenta**, «Cambiar nombre» y «Cambiar contraseña» abren una tarjeta flotante (Escape, clic fuera o «Cancelar» la cierran). El **idioma** se elige en una lista desplegable. Desde el panel de administración, crear una clave ahora exige también la contraseña maestra (`admin_crear_clave(p_nombre, p_maestra)`; vuelve a ejecutar `supabase/schema.sql`).
+
+## Seguir a otros usuarios
+
+En cada perfil ajeno hay un botón **Seguir / Dejar de seguir** y un texto con los **seguidores** y a cuántas personas **sigue** (tabla `seguimientos`, función `seguir`). Con eso funcionan dos opciones de Visibilidad:
+
+- **Personas que sigo:** los usuarios a los que tú sigues pueden ver tu estado.
+- **Seguidores:** los usuarios que te siguen pueden ver tu estado.
+
+Se pueden combinar entre sí y con las demás; los invitados solo ven el estado de quien eligió «Todos» y «visible para invitados». Las listas desplegables usan una lista propia (`js/desplegable.js`) que mantiene el `<select>` original como fuente del valor. El resaltado de texto seleccionado usa el color predeterminado del navegador. Vuelve a ejecutar `supabase/schema.sql` para crear la tabla y las funciones.

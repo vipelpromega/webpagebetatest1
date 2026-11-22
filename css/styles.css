@@ -149,7 +149,6 @@ html {
   scrollbar-color: var(--scroll) transparent;
 }
 
-::selection { background: var(--accent-bg); color: var(--on-accent); }
 
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 

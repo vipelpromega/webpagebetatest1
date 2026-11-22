@@ -286,7 +286,7 @@
       const f = document.createElement("form"); f.className = "tarjeta-form"; f.noValidate = true; f.autocomplete = "off";
       f.append(etiqueta, caja, error, botones);
       const t = abrirTarjeta("Cambiar nombre", f, campo);
-      campo.select();
+      campo.setSelectionRange(campo.value.length, campo.value.length);
       cancelar.addEventListener("click", t.cerrar);
       f.addEventListener("submit", async (e) => {
         e.preventDefault();

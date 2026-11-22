@@ -9,6 +9,7 @@
 .perfil-usuario { margin: 0; color: var(--muted); }
 .perfil-estado { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
 .perfil-estado.online { color: #1d9a52; }
+.perfil-seguim { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
 .perfil-extra { margin: 0 0 1rem; display: grid; gap: 8px; }
 .perfil-extra div { display: flex; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .perfil-extra dt { color: var(--muted); min-width: 130px; }
