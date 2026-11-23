@@ -24,13 +24,15 @@
     var ns = p.seguidores || 0, ng = p.siguiendo || 0;
     $("perfil-seguidores-n").textContent = ns; $("perfil-seguidores-t").textContent = t(ns === 1 ? "seguidor" : "seguidores");
     $("perfil-siguiendo-n").textContent = ng; $("perfil-siguiendo-t").textContent = t("siguiendo");
+    var na = p.amigos || 0;
+    $("perfil-amigos-n").textContent = na; $("perfil-amigos-t").textContent = t(na === 1 ? "amigo" : "amigos");
     // La lista solo se puede abrir si su dueño la comparte con quien mira (los invitados no la ven)
     verLista = !!p.ver_seguim;
-    [["perfil-seguidores-btn", "seguidores"], ["perfil-siguiendo-btn", "siguiendo"]].forEach(function (x) {
+    [["perfil-seguidores-btn", "seguidores"], ["perfil-siguiendo-btn", "siguiendo"], ["perfil-amigos-btn", "amigos"]].forEach(function (x) {
       var btn = $(x[0]);
       btn.disabled = !verLista;
       btn.classList.toggle("privada", !verLista);
-      var txt = (x[1] === "seguidores" ? (ns === 1 ? t("seguidor") : t("seguidores")) : t("siguiendo"));
+      var txt = (x[1] === "seguidores" ? (ns === 1 ? t("seguidor") : t("seguidores")) : x[1] === "amigos" ? (na === 1 ? t("amigo") : t("amigos")) : t("siguiendo"));
       btn.setAttribute("aria-label", verLista ? t("Ver la lista") + ": " + txt : txt + " (" + t("Lista privada") + ")");
       btn.title = verLista ? "" : t("Este usuario no comparte esta lista.");
     });
@@ -40,13 +42,22 @@
     b.setAttribute("aria-pressed", String(!!p.sigo));
     b.textContent = p.sigo ? t("Dejar de seguir") : t("Seguir");
     b.classList.toggle("secondary", !!p.sigo);
+    var ba = $("perfil-amigo"), bm = $("perfil-mejor");
+    ba.hidden = bm.hidden = b.hidden;
+    ba.dataset.amigo = p.amigo ? "1" : ""; ba.setAttribute("aria-pressed", String(!!p.amigo));
+    ba.textContent = p.amigo ? t("Quitar amigo") : t("Agregar amigo"); ba.classList.toggle("secondary", !!p.amigo);
+    bm.dataset.mejor = p.mejor ? "1" : ""; bm.setAttribute("aria-pressed", String(!!p.mejor));
+    bm.textContent = p.mejor ? t("Quitar de mejores amigos") : t("Mejor amigo");
+    bm.disabled = !p.amigo;                       // solo se puede si ya es tu amigo
+    bm.title = p.amigo ? "" : t("Primero agrégalo como amigo.");
   }
   function pintar(r) {
     var p = r.perfil; idPerfil = p.id; nombrePerfil = p.nombre;
     $("perfil-cab").hidden = false;
     var firma = [p.nombre, p.avatar ? p.avatar.length : 0, p.usuario].join("|");
     if (firma !== ultimo) { pintarAvatar($("perfil-avatar"), p); ultimo = firma; }
-    $("perfil-nombre").textContent = p.nombre;
+    var hn = $("perfil-nombre"); hn.textContent = p.nombre;
+    if (p.mejor && A.iconoMejor) hn.appendChild(A.iconoMejor());
     $("perfil-usuario").textContent = p.usuario ? "@" + p.usuario : "";
     var on = p.estado === "online";
     $("perfil-punto").hidden = !on;
@@ -68,24 +79,24 @@
   function abrirLista(tipo) {
     if (!idPerfil || !verLista) return;
     var cont = document.createElement("div"); cont.className = "seg-lista-caja";
-    var ul = document.createElement("ul"); ul.className = "seg-lista"; ul.setAttribute("aria-label", t(tipo === "seguidores" ? "Seguidores" : "Siguiendo"));
+    var ul = document.createElement("ul"); ul.className = "seg-lista"; ul.setAttribute("aria-label", t(tipo === "seguidores" ? "Seguidores" : tipo === "amigos" ? "Amigos" : "Siguiendo"));
     var vacio = document.createElement("p"); vacio.className = "nota"; vacio.textContent = t("Cargando…");
     var cerrar = document.createElement("button"); cerrar.type = "button"; cerrar.className = "btn secondary"; cerrar.textContent = t("Cerrar");
     var fila = document.createElement("div"); fila.className = "clave-botones"; fila.appendChild(cerrar);
     cont.append(vacio, ul, fila);
-    var titulo = t(tipo === "seguidores" ? "Seguidores" : "Siguiendo") + " · " + nombrePerfil;
+    var titulo = t(tipo === "seguidores" ? "Seguidores" : tipo === "amigos" ? "Amigos" : "Siguiendo") + " · " + nombrePerfil;
     var tj = window.Tarjeta.abrir(titulo, cont, cerrar);
     cerrar.addEventListener("click", tj.cerrar);
     A.listaSeguimiento(idPerfil, tipo).then(function (r) {
       if (!r.ok) { vacio.textContent = r.error === "privado" ? t("Este usuario no comparte esta lista.") : t("No se pudo cargar la lista."); return; }
-      if (!r.usuarios.length) { vacio.textContent = t(tipo === "seguidores" ? "Todavía no tiene seguidores." : "Todavía no sigue a nadie."); return; }
+      if (!r.usuarios.length) { vacio.textContent = t(tipo === "seguidores" ? "Todavía no tiene seguidores." : tipo === "amigos" ? "Todavía no tiene amigos." : "Todavía no sigue a nadie."); return; }
       vacio.hidden = true;
       r.usuarios.forEach(function (u) {
         var li = document.createElement("li");
         var a = document.createElement("a"); a.className = "seg-fila"; a.href = "perfil.html?id=" + encodeURIComponent(u.id);
         var av = document.createElement("span"); av.className = "u-avatar seg-avatar"; av.setAttribute("aria-hidden", "true"); pintarAvatar(av, u);
         var tx = document.createElement("span"); tx.className = "seg-texto";
-        var n = document.createElement("span"); n.className = "seg-nombre"; n.textContent = u.nombre;
+        var n = document.createElement("span"); n.className = "seg-nombre"; n.textContent = u.nombre; if (u.mejor && A.iconoMejor) n.appendChild(A.iconoMejor());
         var us = document.createElement("span"); us.className = "seg-usuario"; us.textContent = u.usuario ? "@" + u.usuario : "";
         tx.append(n, us); a.append(av, tx); li.appendChild(a); ul.appendChild(li);
       });
@@ -94,7 +105,7 @@
   function cargar() {
     return A.perfilUsuario(id).then(function (r) {
       if (!r.ok) {
-        $("perfil-cab").hidden = true; $("perfil-extra").hidden = true; $("perfil-editar").hidden = true; $("perfil-seguir").hidden = true;
+        $("perfil-cab").hidden = true; $("perfil-extra").hidden = true; $("perfil-editar").hidden = true; $("perfil-seguir").hidden = true; $("perfil-amigo").hidden = true; $("perfil-mejor").hidden = true;
         mostrarMsg(r.error === "no_existe" ? t("Este perfil no existe o no está disponible.") : t("No se pudo cargar el perfil."));
         return;
       }
@@ -118,6 +129,18 @@
     if (!A.estado()) return;
     $("perfil-seguidores-btn").addEventListener("click", function () { abrirLista("seguidores"); });
     $("perfil-siguiendo-btn").addEventListener("click", function () { abrirLista("siguiendo"); });
+    $("perfil-amigos-btn").addEventListener("click", function () { abrirLista("amigos"); });
+    function accion(btn, acc) {
+      if (ocupado || !idPerfil || btn.disabled) return;
+      ocupado = true; btn.disabled = true;
+      A.amistad(idPerfil, acc).then(function (r) {
+        ocupado = false; btn.disabled = false;
+        if (!r.ok) { mostrarMsg(t("No se pudo actualizar la amistad.")); return; }
+        mostrarMsg(""); cargar();
+      });
+    }
+    $("perfil-amigo").addEventListener("click", function () { accion(this, this.dataset.amigo === "1" ? "quitar" : "agregar"); });
+    $("perfil-mejor").addEventListener("click", function () { accion(this, this.dataset.mejor === "1" ? "no_mejor" : "mejor"); });
     $("perfil-seguir").addEventListener("click", function () {
       if (ocupado || !idPerfil) return;
       var b = this, quiere = b.dataset.sigo !== "1";

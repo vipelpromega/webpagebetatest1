@@ -430,6 +430,22 @@
       return r.ok ? { ok: true, sigo: !!r.sigo, seguidores: Number(r.seguidores) || 0 } : { ok: false, error: r.error || "error" };
     });
   }
+  function amistad(id, accion) {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
+    return rpc("amistad", { p_token: s.token, p_id: id, p_accion: accion }).then(function (r) {
+      return r.ok ? { ok: true, amigo: !!r.amigo, mejor: !!r.mejor, amigos: Number(r.amigos) || 0 } : { ok: false, error: r.error || "error" };
+    });
+  }
+  // Icono de «mejor amigo» (una estrella) para ponerlo junto al nombre
+  var ESTRELLA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.5l6-.8z"/></svg>';
+  function iconoMejor() {
+    var e = document.createElement("span");
+    e.className = "mejor-ico"; e.setAttribute("role", "img");
+    var tt = window.I18n && window.I18n.t ? window.I18n.t("Mejor amigo") : "Mejor amigo";
+    e.setAttribute("aria-label", tt); e.title = tt; e.innerHTML = ESTRELLA;
+    return e;
+  }
   function listaUsuarios() {
     var s = leerSesion();
     return rpc("lista_usuarios", { p_token: s ? s.token : null }).then(function (r) {
@@ -483,6 +499,8 @@
     desconectando: desconectando,
     perfilUsuario: perfilUsuario,
     seguir: seguir,
+    amistad: amistad,
+    iconoMejor: iconoMejor,
     listaUsuarios: listaUsuarios,
     estadosUsuarios: estadosUsuarios,
     miVisibilidad: miVisibilidad,

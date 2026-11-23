@@ -105,3 +105,8 @@ Se pueden combinar entre sí y con las demás; los invitados solo ven el estado 
 
 ### Lista de seguidores y seguidos
 En el perfil, «seguidores» y «siguiendo» son botones con icono; al pulsarlos se abre una tarjeta flotante con las personas (cada fila lleva a su perfil). Quién puede abrir esas listas se elige en Configuración → Visibilidad → «¿Quién puede ver tus seguidores y a quién sigues?» (mismas opciones que el estado, sin invitados; funciones `guardar_visibilidad_seguim` y `lista_seguimiento`). Los números siempre se ven. Las tarjetas de Visibilidad vienen plegadas y se despliegan al pulsar; la fila plegada resume lo elegido. Vuelve a ejecutar `supabase/schema.sql`.
+
+### Amigos y mejores amigos
+En cada perfil ajeno hay «Agregar amigo» (se agrega sin necesidad de aceptación, como seguir) y, solo si ya es tu amigo, «Mejor amigo» (sin lista). Los amigos tienen su propia lista en el perfil (botón «amigos»), y la comparte la misma configuración que seguidores y siguiendo. Tus mejores amigos llevan una estrella junto al nombre (en la tarjeta Usuarios, en perfiles y en listas); solo la ves tú. Las opciones «Amigos» y «Mejores amigos» de Visibilidad ya funcionan para el estado y las listas. Tabla `amistades`, función `amistad`. Vuelve a ejecutar `supabase/schema.sql`.
+
+Las tarjetas de Visibilidad solo tienen una flecha a un lado, se despliegan con una animación suave y se cierran solas poco después de cambiar una opción.

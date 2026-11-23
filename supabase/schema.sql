@@ -840,11 +840,26 @@ create index if not exists seguimientos_seguido_idx on public.seguimientos (segu
 alter table public.seguimientos enable row level security;
 revoke all on table public.seguimientos from public, anon, authenticated;
 
+-- Amistades: «usuario» tiene a «amigo» en su lista de amigos (la agrega quien la tiene; no hace falta aceptación).
+-- «mejor»: además lo marcó como mejor amigo (solo se puede si ya es amigo; solo lo ve quien lo marcó).
+create table if not exists public.amistades (
+  usuario uuid not null references public.usuarios(id) on delete cascade,
+  amigo   uuid not null references public.usuarios(id) on delete cascade,
+  mejor   boolean not null default false,
+  creado  timestamptz not null default now(),
+  primary key (usuario, amigo),
+  check (usuario <> amigo)
+);
+create index if not exists amistades_amigo_idx on public.amistades (amigo);
+alter table public.amistades enable row level security;
+revoke all on table public.amistades from public, anon, authenticated;
+
 -- ¿Puede quien mira (v_id, o un invitado) ver el estado real de «u»?
 --  · El propio estado siempre.
 --  · «Todos»: cualquier usuario con sesión (un invitado, solo si «visible para invitados»).
 --  · «Personas que sigo»: los usuarios a los que «u» sigue.
 --  · «Seguidores»: los usuarios que siguen a «u».
+--  · «Amigos» / «Mejores amigos»: los usuarios que «u» tiene en su lista de amigos / de mejores amigos.
 create or replace function privado.ve_estado(p_u uuid, p_vis text[], p_invitados boolean, p_v uuid, p_miembro boolean)
 returns boolean language sql stable security definer set search_path = '' as $$
   select case
@@ -853,6 +868,8 @@ returns boolean language sql stable security definer set search_path = '' as $$
       or 'todos' = any (p_vis)
       or ('seguidos' = any (p_vis) and exists (select 1 from public.seguimientos s where s.seguidor = p_u and s.seguido = p_v))
       or ('seguidores' = any (p_vis) and exists (select 1 from public.seguimientos s where s.seguidor = p_v and s.seguido = p_u))
+      or ('amigos' = any (p_vis) and exists (select 1 from public.amistades a where a.usuario = p_u and a.amigo = p_v))
+      or ('mejores_amigos' = any (p_vis) and exists (select 1 from public.amistades a where a.usuario = p_u and a.amigo = p_v and a.mejor))
     else 'todos' = any (p_vis) and p_invitados
   end
 $$;
@@ -881,14 +898,51 @@ begin
     'seguidores', (select count(*) from public.seguimientos s join public.usuarios x on x.id = s.seguidor where s.seguido = p_id and not x.suspendida));
 end $$;
 
--- ¿Puede quien mira (p_v) ver las listas de seguidores / seguidos de «p_u»? Solo usuarios con sesión; misma lógica que el estado.
+-- Amigos: 'agregar', 'quitar', 'mejor' (marcar mejor amigo, solo si ya es amigo) o 'no_mejor'
+create or replace function public.amistad(p_token text, p_id uuid, p_accion text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v public.usuarios;
+  a public.amistades;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  if p_id is null or p_id = v.id then
+    return jsonb_build_object('ok', false, 'error', 'propio');
+  end if;
+  if p_accion is null or p_accion not in ('agregar', 'quitar', 'mejor', 'no_mejor') then
+    return jsonb_build_object('ok', false, 'error', 'accion');
+  end if;
+  if not exists (select 1 from public.usuarios where id = p_id and not suspendida) then
+    return jsonb_build_object('ok', false, 'error', 'no_existe');
+  end if;
+  if p_accion = 'agregar' then
+    insert into public.amistades (usuario, amigo) values (v.id, p_id) on conflict do nothing;
+  elsif p_accion = 'quitar' then
+    delete from public.amistades where usuario = v.id and amigo = p_id;   -- también deja de ser mejor amigo
+  else
+    update public.amistades set mejor = (p_accion = 'mejor') where usuario = v.id and amigo = p_id;
+    if not found then
+      return jsonb_build_object('ok', false, 'error', 'no_amigo');
+    end if;
+  end if;
+  select * into a from public.amistades where usuario = v.id and amigo = p_id;
+  return jsonb_build_object('ok', true, 'amigo', a.usuario is not null, 'mejor', coalesce(a.mejor, false),
+    'amigos', (select count(*) from public.amistades am join public.usuarios x on x.id = am.amigo where am.usuario = p_id and not x.suspendida));
+end $$;
+
+-- ¿Puede quien mira (p_v) ver las listas de seguidores / seguidos / amigos de «p_u»? Solo usuarios con sesión; misma lógica que el estado.
 create or replace function privado.ve_seguim(p_u uuid, p_vis text[], p_v uuid)
 returns boolean language sql stable security definer set search_path = '' as $$
   select p_v is not null and (
     p_u = p_v
     or 'todos' = any (p_vis)
     or ('seguidos' = any (p_vis) and exists (select 1 from public.seguimientos s where s.seguidor = p_u and s.seguido = p_v))
-    or ('seguidores' = any (p_vis) and exists (select 1 from public.seguimientos s where s.seguidor = p_v and s.seguido = p_u)))
+    or ('seguidores' = any (p_vis) and exists (select 1 from public.seguimientos s where s.seguidor = p_v and s.seguido = p_u))
+    or ('amigos' = any (p_vis) and exists (select 1 from public.amistades a where a.usuario = p_u and a.amigo = p_v))
+    or ('mejores_amigos' = any (p_vis) and exists (select 1 from public.amistades a where a.usuario = p_u and a.amigo = p_v and a.mejor)))
 $$;
 
 -- Lista de seguidores ('seguidores') o de personas que sigue ('siguiendo') de un usuario
@@ -902,7 +956,7 @@ begin
   if v.id is null then
     return jsonb_build_object('ok', false, 'error', 'sesion');
   end if;
-  if p_tipo is null or p_tipo not in ('seguidores', 'siguiendo') then
+  if p_tipo is null or p_tipo not in ('seguidores', 'siguiendo', 'amigos') then
     return jsonb_build_object('ok', false, 'error', 'tipo');
   end if;
   select * into u from public.usuarios where id = p_id and not suspendida;
@@ -912,8 +966,18 @@ begin
   if not privado.ve_seguim(u.id, u.visibilidades_seguim, v.id) then
     return jsonb_build_object('ok', false, 'error', 'privado');
   end if;
+  if p_tipo = 'amigos' then
+    return jsonb_build_object('ok', true, 'tipo', p_tipo, 'usuarios', coalesce((
+      select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
+                       'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
+                       order by a.creado desc, x.id)
+        from public.amistades a join public.usuarios x on x.id = a.amigo
+       where a.usuario = u.id and not x.suspendida), '[]'::jsonb));
+  end if;
   return jsonb_build_object('ok', true, 'tipo', p_tipo, 'usuarios', coalesce((
-    select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario) order by s.creado desc, x.id)
+    select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
+                     'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
+                     order by s.creado desc, x.id)
       from public.seguimientos s
       join public.usuarios x on x.id = case when p_tipo = 'seguidores' then s.seguidor else s.seguido end
      where not x.suspendida
@@ -964,7 +1028,10 @@ begin
       'yo', v_miembro and u.id = v.id,
       'seguidores', (select count(*) from public.seguimientos s join public.usuarios x on x.id = s.seguidor where s.seguido = u.id and not x.suspendida),
       'siguiendo',  (select count(*) from public.seguimientos s join public.usuarios x on x.id = s.seguido where s.seguidor = u.id and not x.suspendida),
+      'amigos', (select count(*) from public.amistades a join public.usuarios x on x.id = a.amigo where a.usuario = u.id and not x.suspendida),
       'ver_seguim', privado.ve_seguim(u.id, u.visibilidades_seguim, v.id),
+      'amigo', v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id),
+      'mejor', v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id and a.mejor),
       'sigo', v_miembro and exists (select 1 from public.seguimientos s where s.seguidor = v.id and s.seguido = u.id),
       'estado', case when v_ver and privado.en_linea(u.visto, u.saliendo, u.estado_manual) then 'online' else 'offline' end));
 end $$;
@@ -994,7 +1061,8 @@ begin
                 and privado.ve_estado(u.id, u.visibilidades, u.visible_invitados, v.id, v_miembro)
                  then 'online' else 'offline'
              end as estado,
-             (v_miembro and u.id = v.id) as yo
+             (v_miembro and u.id = v.id) as yo,
+             (v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id and a.mejor)) as mejor
         from public.usuarios u
        where not u.suspendida
        order by coalesce(privado.en_linea(u.visto, u.saliendo, u.estado_manual)
@@ -1599,6 +1667,7 @@ revoke all on function public.mi_visibilidad(text)                  from public,
 revoke all on function public.guardar_estado(text, text)            from public, anon, authenticated;
 revoke all on function public.desconectando(text)                   from public, anon, authenticated;
 revoke all on function public.seguir(text, uuid, boolean)           from public, anon, authenticated;
+revoke all on function public.amistad(text, uuid, text)             from public, anon, authenticated;
 revoke all on function public.perfil_usuario(text, uuid)            from public, anon, authenticated;
 revoke all on function public.guardar_visibilidad(text, text[], boolean) from public, anon, authenticated;
 revoke all on function public.guardar_visibilidad_seguim(text, text[]) from public, anon, authenticated;
@@ -1630,6 +1699,7 @@ grant execute on function public.mi_visibilidad(text)               to anon, aut
 grant execute on function public.guardar_estado(text, text)         to anon, authenticated;
 grant execute on function public.desconectando(text)                to anon, authenticated;
 grant execute on function public.seguir(text, uuid, boolean)        to anon, authenticated;
+grant execute on function public.amistad(text, uuid, text)          to anon, authenticated;
 grant execute on function public.perfil_usuario(text, uuid)         to anon, authenticated;
 grant execute on function public.guardar_visibilidad(text, text[], boolean) to anon, authenticated;
 grant execute on function public.guardar_visibilidad_seguim(text, text[]) to anon, authenticated;

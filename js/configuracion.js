@@ -186,19 +186,24 @@
     if (!A || !bloque) return;
     if (A.estado() !== "usuario") { invitado.hidden = false; return; }
     bloque.hidden = false;
-    const T = (s) => (window.I18n ? window.I18n.t(s) : s);
-    // Texto del resumen (lo elegido) que se ve en la fila plegada
-    const resumir = (cajas, el) => {
-      const n = cajas.filter((c) => c.checked).map((c) => T(c.parentElement.querySelector(".vis-titulo").textContent));
-      el.textContent = n.length ? n.join(", ") : "…";
-    };
-    // Un bloque de casillas que se guarda solo: (cajas, valor inicial, guardar(modos) -> promesa, mensaje, ...)
-    function bloqueModos(nombre, resumen, msgEl, guardarFn, extra) {
+    // Tarjeta plegable: se abre/cierra con la flecha; tras cambiar una opción se cierra sola (con calma, por si eliges varias)
+    function plegable(pid) {
+      const cab = document.getElementById(pid + "-cab"), cuerpo = document.getElementById(pid + "-cuerpo"), tarjeta = cab.closest(".vis-card");
+      let t = 0;
+      const poner = (abierta) => {
+        tarjeta.classList.toggle("abierta", abierta); cab.setAttribute("aria-expanded", String(abierta));
+        if (abierta) cuerpo.removeAttribute("inert"); else cuerpo.setAttribute("inert", "");
+      };
+      cab.addEventListener("click", () => { clearTimeout(t); poner(!tarjeta.classList.contains("abierta")); });
+      return { cerrarPronto() { clearTimeout(t); t = setTimeout(() => poner(false), 900); }, cerrar() { clearTimeout(t); poner(false); } };
+    }
+    const plegEstado = plegable("vis-estado"), plegSeg = plegable("vis-seg");
+    // Un bloque de casillas que se guarda solo
+    function bloqueModos(nombre, plegado, msgEl, guardarFn, extra) {
       const cajas = Array.from(document.querySelectorAll('input[name="' + nombre + '"]'));
       let modos = ["todos"], cargado = false, ocupado = false, pendiente = false;
       function pintar() {
         cajas.forEach((c) => { c.checked = modos.indexOf(c.value) >= 0; });
-        resumir(cajas, resumen);
         if (extra && extra.pintar) extra.pintar(modos);
       }
       async function guardar() {
@@ -216,7 +221,7 @@
         else modos = modos.filter((m) => m !== c.value);
         if (!modos.length) modos = ["nadie"];            // sin ninguna opción equivale a «Nadie»
         if (extra && extra.alCambiar) extra.alCambiar(modos);
-        pintar(); guardar();
+        pintar(); guardar(); plegado.cerrarPronto();
       }));
       cajas.forEach((c) => { c.disabled = true; });
       pintar();
@@ -226,12 +231,12 @@
       };
     }
     const caja = document.getElementById("vis-invitados-caja"), chk = document.getElementById("vis-invitados");
-    const estadoBloque = bloqueModos("visibilidad", document.getElementById("vis-resumen"), document.getElementById("vis-msg"),
+    const estadoBloque = bloqueModos("visibilidad", plegEstado, document.getElementById("vis-msg"),
       (m) => A.guardarVisibilidad(m, m.indexOf("todos") >= 0 && chk.checked),
       { pintar: (m) => { caja.hidden = m.indexOf("todos") < 0; }, alCambiar: (m) => { if (m.indexOf("todos") < 0) chk.checked = false; } });
-    const segBloque = bloqueModos("vis-seg", document.getElementById("vis-seg-resumen"), document.getElementById("vis-seg-msg"),
+    const segBloque = bloqueModos("vis-seg", plegSeg, document.getElementById("vis-seg-msg"),
       (m) => A.guardarVisibilidadSeguim(m));
-    chk.addEventListener("change", () => estadoBloque.guardar());
+    chk.addEventListener("change", () => { estadoBloque.guardar(); plegEstado.cerrarPronto(); });
     chk.disabled = true;
     A.miVisibilidad().then((r) => {
       if (r.ok) chk.checked = r.invitados;

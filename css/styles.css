@@ -457,7 +457,10 @@ body.pagina-principal { --content-w: 1100px; }
 .u-punto { position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; border-radius: 50%; background: #22b35e; border: 2px solid var(--panel); box-sizing: border-box; }
 .u-punto[hidden] { display: none; }
 .u-datos { display: flex; flex-direction: column; min-width: 0; }
-.u-nombre { font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.u-nombre { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 14px; color: var(--text); }
+.u-nombre-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mejor-ico { display: inline-grid; place-items: center; flex-shrink: 0; color: #f2b01e; }
+.mejor-ico svg { display: block; width: 15px; height: 15px; fill: currentColor; stroke: currentColor; stroke-width: 1.2; stroke-linejoin: round; }
 .u-estado { font-size: 12px; color: var(--muted); min-height: 1em; }
 .u-fila.online .u-estado { color: #1d9a52; }
 

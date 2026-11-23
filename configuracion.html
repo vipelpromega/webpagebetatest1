@@ -284,48 +284,50 @@
       <section class="group">
         <h2 class="group-title">Visibilidad</h2>
         <div class="settings" id="vis-miembro" hidden>
-          <div class="setting-card vis-card">
-            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
-            <div class="setting-text">
-              <div class="setting-title">¿Quién puede ver tu estado?</div>
-              <div class="setting-desc">Puedes elegir varias opciones. Tu estado indica si estás en línea o desconectado (pronto, más). Se guarda solo al elegir.</div>
-            </div>
-            <details class="vis-det">
-              <summary class="vis-sum"><span class="vis-resumen" id="vis-resumen"></span><span class="vis-chev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></summary>
-              <div class="vis-cuerpo">
-                  <div class="vis-opciones" role="group" aria-label="¿Quién puede ver tu estado?">
-                    <label class="vis-op"><input type="checkbox" name="visibilidad" value="todos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Todos</span><span class="vis-desc">Todos los usuarios registrados podrán ver tu estado (En línea / Desconectado).</span></span></label>
-                    <label class="vis-op"><input type="checkbox" name="visibilidad" value="amigos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Amigos</span><span class="vis-desc">Por ahora esta opción no hace nada.</span></span></label>
-                    <label class="vis-op"><input type="checkbox" name="visibilidad" value="mejores_amigos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Mejores amigos</span><span class="vis-desc">Por ahora esta opción no hace nada.</span></span></label>
-                    <label class="vis-op"><input type="checkbox" name="visibilidad" value="seguidos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Personas que sigo</span><span class="vis-desc">Los usuarios a los que sigues podrán ver tu estado.</span></span></label>
-                    <label class="vis-op"><input type="checkbox" name="visibilidad" value="seguidores"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Seguidores</span><span class="vis-desc">Los usuarios que te siguen podrán ver tu estado.</span></span></label>
-                    <label class="vis-op"><input type="checkbox" name="visibilidad" value="nadie"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Nadie</span><span class="vis-desc">Nadie podrá ver tu estado.</span></span></label>
-                  </div>
-                  <label class="vis-invitados" id="vis-invitados-caja" hidden><input type="checkbox" id="vis-invitados"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Visible también para los invitados</span><span class="vis-desc">Las personas sin cuenta que entren como invitados también verán tu foto, nombre y estado.</span></span></label>
-                  <p class="f-error vis-msg" id="vis-msg" role="status"></p>
+          <div class="setting-card vis-card" data-vis-card>
+            <button type="button" class="vis-cab" id="vis-estado-cab" aria-expanded="false" aria-controls="vis-estado-cuerpo">
+              <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
+              <span class="vis-cab-texto"><span class="setting-title">¿Quién puede ver tu estado?</span><span class="setting-desc">Puedes elegir varias opciones. Tu estado indica si estás en línea o desconectado (pronto, más). Se guarda solo al elegir.</span></span>
+              <span class="vis-chev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+            </button>
+            <div class="vis-despl" id="vis-estado-cuerpo" role="region" aria-labelledby="vis-estado-cab" inert>
+              <div class="vis-despl-int">
+                <div class="vis-cuerpo">
+                <div class="vis-opciones" role="group" aria-label="¿Quién puede ver tu estado?">
+                  <label class="vis-op"><input type="checkbox" name="visibilidad" value="todos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Todos</span><span class="vis-desc">Todos los usuarios registrados podrán ver tu estado (En línea / Desconectado).</span></span></label>
+                  <label class="vis-op"><input type="checkbox" name="visibilidad" value="amigos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Amigos</span><span class="vis-desc">Tus amigos podrán ver tu estado.</span></span></label>
+                  <label class="vis-op"><input type="checkbox" name="visibilidad" value="mejores_amigos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Mejores amigos</span><span class="vis-desc">Tus mejores amigos podrán ver tu estado.</span></span></label>
+                  <label class="vis-op"><input type="checkbox" name="visibilidad" value="seguidos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Personas que sigo</span><span class="vis-desc">Los usuarios a los que sigues podrán ver tu estado.</span></span></label>
+                  <label class="vis-op"><input type="checkbox" name="visibilidad" value="seguidores"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Seguidores</span><span class="vis-desc">Los usuarios que te siguen podrán ver tu estado.</span></span></label>
+                  <label class="vis-op"><input type="checkbox" name="visibilidad" value="nadie"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Nadie</span><span class="vis-desc">Nadie podrá ver tu estado.</span></span></label>
+                </div>
+                <label class="vis-invitados" id="vis-invitados-caja" hidden><input type="checkbox" id="vis-invitados"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Visible también para los invitados</span><span class="vis-desc">Las personas sin cuenta que entren como invitados también verán tu foto, nombre y estado.</span></span></label>
+                <p class="f-error vis-msg" id="vis-msg" role="status"></p>
+                </div>
               </div>
-            </details>
-          </div>
-          <div class="setting-card vis-card">
-            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M18 14.4c2.2.7 3.5 2.4 3.5 5.6"/></svg></span>
-            <div class="setting-text">
-              <div class="setting-title">¿Quién puede ver tus seguidores y a quién sigues?</div>
-              <div class="setting-desc">Controla quién puede abrir las listas de tu perfil. Los números siempre se ven. Puedes elegir varias opciones; se guarda solo al elegir.</div>
             </div>
-            <details class="vis-det">
-              <summary class="vis-sum"><span class="vis-resumen" id="vis-seg-resumen"></span><span class="vis-chev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></summary>
-              <div class="vis-cuerpo">
-                <div class="vis-opciones" role="group" aria-label="¿Quién puede ver tus seguidores y a quién sigues?">
-                  <label class="vis-op"><input type="checkbox" name="vis-seg" value="todos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Todos</span><span class="vis-desc">Todos los usuarios registrados podrán ver tus seguidores y a quién sigues.</span></span></label>
-                  <label class="vis-op"><input type="checkbox" name="vis-seg" value="amigos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Amigos</span><span class="vis-desc">Por ahora esta opción no hace nada.</span></span></label>
-                  <label class="vis-op"><input type="checkbox" name="vis-seg" value="mejores_amigos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Mejores amigos</span><span class="vis-desc">Por ahora esta opción no hace nada.</span></span></label>
+          </div>
+          <div class="setting-card vis-card" data-vis-card>
+            <button type="button" class="vis-cab" id="vis-seg-cab" aria-expanded="false" aria-controls="vis-seg-cuerpo">
+              <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M18 14.4c2.2.7 3.5 2.4 3.5 5.6"/></svg></span>
+              <span class="vis-cab-texto"><span class="setting-title">¿Quién puede ver tus seguidores, a quién sigues y tus amigos?</span><span class="setting-desc">Controla quién puede abrir las listas de tu perfil. Los números siempre se ven. Puedes elegir varias opciones; se guarda solo al elegir.</span></span>
+              <span class="vis-chev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+            </button>
+            <div class="vis-despl" id="vis-seg-cuerpo" role="region" aria-labelledby="vis-seg-cab" inert>
+              <div class="vis-despl-int">
+                <div class="vis-cuerpo">
+                <div class="vis-opciones" role="group" aria-label="¿Quién puede ver tus seguidores, a quién sigues y tus amigos?">
+                  <label class="vis-op"><input type="checkbox" name="vis-seg" value="todos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Todos</span><span class="vis-desc">Todos los usuarios registrados podrán ver tus listas.</span></span></label>
+                  <label class="vis-op"><input type="checkbox" name="vis-seg" value="amigos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Amigos</span><span class="vis-desc">Tus amigos podrán ver estas listas.</span></span></label>
+                  <label class="vis-op"><input type="checkbox" name="vis-seg" value="mejores_amigos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Mejores amigos</span><span class="vis-desc">Tus mejores amigos podrán ver estas listas.</span></span></label>
                   <label class="vis-op"><input type="checkbox" name="vis-seg" value="seguidos"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Personas que sigo</span><span class="vis-desc">Los usuarios a los que sigues podrán ver estas listas.</span></span></label>
                   <label class="vis-op"><input type="checkbox" name="vis-seg" value="seguidores"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Seguidores</span><span class="vis-desc">Los usuarios que te siguen podrán ver estas listas.</span></span></label>
                   <label class="vis-op"><input type="checkbox" name="vis-seg" value="nadie"><span class="vis-check" aria-hidden="true"></span><span class="vis-texto"><span class="vis-titulo">Nadie</span><span class="vis-desc">Solo tú podrás ver estas listas.</span></span></label>
                 </div>
                 <p class="f-error vis-msg" id="vis-seg-msg" role="status"></p>
+                </div>
               </div>
-            </details>
+            </div>
           </div>
         </div>
         <div class="settings" id="vis-invitado" hidden>

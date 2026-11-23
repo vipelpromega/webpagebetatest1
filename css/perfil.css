@@ -38,5 +38,8 @@
 .seg-fila:hover, .seg-fila:focus-visible { background: var(--subtle-hover); outline: 0; }
 .seg-avatar { width: 40px; height: 40px; font-size: 16px; flex-shrink: 0; }
 .seg-texto { display: flex; flex-direction: column; min-width: 0; }
-.seg-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seg-nombre { display: flex; align-items: center; gap: 5px; overflow: hidden; white-space: nowrap; }
 .seg-usuario { color: var(--muted); font-size: 13px; }
+.perfil-datos h2 .mejor-ico { margin-left: 8px; vertical-align: middle; }
+.perfil-datos h2 .mejor-ico svg { width: 20px; height: 20px; }
+.perfil-acciones .btn:disabled { opacity: .55; cursor: not-allowed; }

@@ -175,7 +175,10 @@
         var punto = document.createElement("span"); punto.className = "u-punto"; punto.hidden = true; punto.setAttribute("role", "img"); punto.setAttribute("aria-label", t("En línea"));
         caja.appendChild(punto);
         var datos = document.createElement("span"); datos.className = "u-datos";
-        var nom = document.createElement("span"); nom.className = "u-nombre"; nom.textContent = u.nombre + (u.yo ? " (" + t("tú") + ")" : "");
+        var nom = document.createElement("span"); nom.className = "u-nombre";
+        var nomT = document.createElement("span"); nomT.className = "u-nombre-t"; nomT.textContent = u.nombre + (u.yo ? " (" + t("tú") + ")" : "");
+        nom.appendChild(nomT);
+        if (u.mejor && window.Auth.iconoMejor) nom.appendChild(window.Auth.iconoMejor());
         var sub = document.createElement("span"); sub.className = "u-estado";
         datos.appendChild(nom); datos.appendChild(sub);
         // Cada usuario es un enlace a la página de su cuenta
