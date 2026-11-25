@@ -36,20 +36,40 @@
       btn.setAttribute("aria-label", verLista ? t("Ver la lista") + ": " + txt : txt + " (" + t("Lista privada") + ")");
       btn.title = verLista ? "" : t("Este usuario no comparte esta lista.");
     });
+    var m = miembro && !p.yo;
+    var ic = A.iconos || {};
+    // Pone icono y texto a un botón (el texto va en su propio <span> para poder traducirlo)
+    function boton(btn, icono, texto, secundario, accion) {
+      btn.querySelector(".btn-ico").innerHTML = icono || "";
+      btn.querySelector(".btn-txt").textContent = t(texto);
+      btn.classList.toggle("secondary", !!secundario);
+      if (accion) btn.dataset.accion = accion;
+    }
     var b = $("perfil-seguir");
-    b.hidden = !(miembro && !p.yo);
+    b.hidden = !m;
     b.dataset.sigo = p.sigo ? "1" : "";
     b.setAttribute("aria-pressed", String(!!p.sigo));
-    b.textContent = p.sigo ? t("Dejar de seguir") : t("Seguir");
-    b.classList.toggle("secondary", !!p.sigo);
-    var ba = $("perfil-amigo"), bm = $("perfil-mejor");
-    ba.hidden = bm.hidden = b.hidden;
-    ba.dataset.amigo = p.amigo ? "1" : ""; ba.setAttribute("aria-pressed", String(!!p.amigo));
-    ba.textContent = p.amigo ? t("Quitar amigo") : t("Agregar amigo"); ba.classList.toggle("secondary", !!p.amigo);
-    bm.dataset.mejor = p.mejor ? "1" : ""; bm.setAttribute("aria-pressed", String(!!p.mejor));
-    bm.textContent = p.mejor ? t("Quitar de mejores amigos") : t("Mejor amigo");
-    bm.disabled = !p.amigo;                       // solo se puede si ya es tu amigo
-    bm.title = p.amigo ? "" : t("Primero agrégalo como amigo.");
+    boton(b, p.sigo ? ic.personaCheck : ic.personaFlecha, p.sigo ? "Dejar de seguir" : "Seguir", !!p.sigo);
+    // Amigos: se envía una solicitud y la otra persona debe aceptarla
+    var ba = $("perfil-amigo"), br = $("perfil-rechazar"), bm = $("perfil-mejor"), bmr = $("perfil-rechazar-mejor");
+    ba.hidden = !m;
+    br.hidden = !(m && !p.amigo && p.amigo_recibida);
+    ba.setAttribute("aria-pressed", String(!!p.amigo));
+    if (p.amigo) boton(ba, ic.personaMenos, "Quitar amigo", true, "quitar");
+    else if (p.amigo_recibida) boton(ba, ic.personaCheck, "Aceptar amigo", false, "aceptar");
+    else if (p.amigo_enviada) boton(ba, ic.reloj, "Cancelar solicitud", true, "cancelar");
+    else boton(ba, ic.personaMas, "Agregar amigo", false, "agregar");
+    boton(br, ic.cerrar, "Rechazar", true, "rechazar");
+    // Mejor amigo: el botón solo aparece si ya son amigos
+    bm.hidden = !(m && p.amigo);
+    bmr.hidden = !(m && p.amigo && !p.mejor && p.mejor_recibida);
+    var oro = '<span class="mejor-ico">' + (A.dosPersonasOro || "") + "</span>";
+    bm.setAttribute("aria-pressed", String(!!p.mejor));
+    if (p.mejor) boton(bm, oro, "Quitar de mejores amigos", true, "no_mejor");
+    else if (p.mejor_recibida) boton(bm, oro, "Aceptar mejor amigo", false, "aceptar_mejor");
+    else if (p.mejor_enviada) boton(bm, ic.reloj, "Cancelar solicitud de mejor amigo", true, "cancelar_mejor");
+    else boton(bm, oro, "Mejor amigo", true, "mejor");
+    boton(bmr, ic.cerrar, "Rechazar", true, "rechazar_mejor");
   }
   function pintar(r) {
     var p = r.perfil; idPerfil = p.id; nombrePerfil = p.nombre;
@@ -105,7 +125,7 @@
   function cargar() {
     return A.perfilUsuario(id).then(function (r) {
       if (!r.ok) {
-        $("perfil-cab").hidden = true; $("perfil-extra").hidden = true; $("perfil-editar").hidden = true; $("perfil-seguir").hidden = true; $("perfil-amigo").hidden = true; $("perfil-mejor").hidden = true;
+        $("perfil-cab").hidden = true; $("perfil-extra").hidden = true; $("perfil-editar").hidden = true; $("perfil-seguir").hidden = true; $("perfil-amigo").hidden = true; $("perfil-mejor").hidden = true; $("perfil-rechazar").hidden = true; $("perfil-rechazar-mejor").hidden = true;
         mostrarMsg(r.error === "no_existe" ? t("Este perfil no existe o no está disponible.") : t("No se pudo cargar el perfil."));
         return;
       }
@@ -137,10 +157,12 @@
         ocupado = false; btn.disabled = false;
         if (!r.ok) { mostrarMsg(t("No se pudo actualizar la amistad.")); return; }
         mostrarMsg(""); cargar();
+        if (A.refrescarNotificaciones) A.refrescarNotificaciones();   // el contador de la barra se actualiza al momento
       });
     }
-    $("perfil-amigo").addEventListener("click", function () { accion(this, this.dataset.amigo === "1" ? "quitar" : "agregar"); });
-    $("perfil-mejor").addEventListener("click", function () { accion(this, this.dataset.mejor === "1" ? "no_mejor" : "mejor"); });
+    ["perfil-amigo", "perfil-rechazar", "perfil-mejor", "perfil-rechazar-mejor"].forEach(function (bid) {
+      $(bid).addEventListener("click", function () { accion(this, this.dataset.accion); });
+    });
     $("perfil-seguir").addEventListener("click", function () {
       if (ocupado || !idPerfil) return;
       var b = this, quiere = b.dataset.sigo !== "1";
@@ -154,6 +176,9 @@
     }); // sin sesión ni modo invitado se muestra el acceso
     cargar();
     setInterval(refrescarEstado, 2000);
+    // Solicitudes aceptadas, rechazadas o recibidas: el perfil se actualiza solo
+    window.addEventListener("notif-cambio", function () { if (!ocupado) cargar(); });
+    setInterval(function () { if (!document.hidden && !ocupado && idPerfil) cargar(); }, 10000);
     document.addEventListener("visibilitychange", function () { if (!document.hidden) cargar(); });
   });
 })();

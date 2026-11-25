@@ -60,13 +60,13 @@
             <p class="perfil-estado" id="perfil-estado"></p>
             <div class="perfil-seguim" id="perfil-seguim">
               <button type="button" class="perfil-stat" id="perfil-seguidores-btn" aria-haspopup="dialog">
-                <span class="perfil-stat-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M18 14.4c2.2.7 3.5 2.4 3.5 5.6"/></svg></span><b id="perfil-seguidores-n">0</b><span class="perfil-stat-txt" id="perfil-seguidores-t">seguidores</span>
+                <span class="perfil-stat-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M2.8 19.3v-.5a3.8 3.8 0 0 1 3.8-3.8h4.8a3.8 3.8 0 0 1 3.8 3.8v.5"/><path d="M15.6 5.1a3.1 3.1 0 0 1 0 5.8"/><path d="M18.2 15.2a3.6 3.6 0 0 1 3 3.6v.5"/></svg></span><b id="perfil-seguidores-n">0</b><span class="perfil-stat-txt" id="perfil-seguidores-t">seguidores</span>
               </button>
               <button type="button" class="perfil-stat" id="perfil-amigos-btn" aria-haspopup="dialog">
-                <span class="perfil-stat-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6 1.2 0 2.3.2 3.3.6"/><path d="M17 14.5c-1.6-2-4.7-.6-3.4 1.8.8 1.4 3.4 3 3.4 3s2.6-1.6 3.4-3c1.3-2.4-1.8-3.8-3.4-1.8z"/></svg></span><b id="perfil-amigos-n">0</b><span class="perfil-stat-txt" id="perfil-amigos-t">amigos</span>
+                <span class="perfil-stat-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="7.5" r="3.5"/><path d="M3 19.5v-.6A3.9 3.9 0 0 1 6.9 15h3.8"/><path d="M17.8 20.8s-3.3-1.9-3.3-4.2a1.9 1.9 0 0 1 3.3-1.2 1.9 1.9 0 0 1 3.3 1.2c0 2.3-3.3 4.2-3.3 4.2z"/></svg></span><b id="perfil-amigos-n">0</b><span class="perfil-stat-txt" id="perfil-amigos-t">amigos</span>
               </button>
               <button type="button" class="perfil-stat" id="perfil-siguiendo-btn" aria-haspopup="dialog">
-                <span class="perfil-stat-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6 1.6 0 3 .4 4.1 1.1"/><path d="M15 18.5l2.2 2.2 4-4.4"/></svg></span><b id="perfil-siguiendo-n">0</b><span class="perfil-stat-txt" id="perfil-siguiendo-t">siguiendo</span>
+                <span class="perfil-stat-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="7.5" r="3.5"/><path d="M3 19.5v-.6A3.9 3.9 0 0 1 6.9 15h4.7"/><path d="M15 18h6M18.5 15.5L21 18l-2.5 2.5"/></svg></span><b id="perfil-siguiendo-n">0</b><span class="perfil-stat-txt" id="perfil-siguiendo-t">siguiendo</span>
               </button>
             </div>
           </div>
@@ -77,9 +77,11 @@
         <p class="nota" id="perfil-msg" hidden></p>
         <div class="perfil-acciones">
           <a class="btn" id="perfil-editar" href="configuracion.html#cuenta" hidden>Editar mi perfil</a>
-          <button class="btn" id="perfil-seguir" type="button" aria-pressed="false" hidden>Seguir</button>
-          <button class="btn" id="perfil-amigo" type="button" aria-pressed="false" hidden>Agregar amigo</button>
-          <button class="btn secondary" id="perfil-mejor" type="button" aria-pressed="false" hidden>Mejor amigo</button>
+          <button class="btn" id="perfil-seguir" type="button" aria-pressed="false" hidden><span class="btn-ico" aria-hidden="true"></span><span class="btn-txt">Seguir</span></button>
+          <button class="btn" id="perfil-amigo" type="button" aria-pressed="false" hidden><span class="btn-ico" aria-hidden="true"></span><span class="btn-txt">Agregar amigo</span></button>
+          <button class="btn secondary" id="perfil-rechazar" type="button" hidden><span class="btn-ico" aria-hidden="true"></span><span class="btn-txt">Rechazar</span></button>
+          <button class="btn secondary" id="perfil-mejor" type="button" aria-pressed="false" hidden><span class="btn-ico" aria-hidden="true"></span><span class="btn-txt">Mejor amigo</span></button>
+          <button class="btn secondary" id="perfil-rechazar-mejor" type="button" hidden><span class="btn-ico" aria-hidden="true"></span><span class="btn-txt">Rechazar</span></button>
         </div>
       </section>
     </main>

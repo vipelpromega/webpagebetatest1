@@ -1,4 +1,14 @@
 (() => {
+  // ---------- Tarjetas plegables (Fondo, Color de acento, Sesiones activas): solo una flecha al costado ----------
+  document.querySelectorAll("[data-plegable]").forEach((tarjeta) => {
+    const cab = tarjeta.querySelector(".vis-cab"), cuerpo = tarjeta.querySelector(".vis-despl");
+    cab.addEventListener("click", () => {
+      const abrir = !tarjeta.classList.contains("abierta");
+      tarjeta.classList.toggle("abierta", abrir); cab.setAttribute("aria-expanded", String(abrir));
+      if (abrir) cuerpo.removeAttribute("inert"); else cuerpo.setAttribute("inert", "");
+    });
+  });
+
   // ---------- Tema ----------
   const temaSel = document.getElementById("tema-select");
   const refresh = () => { temaSel.value = window.Theme.get(); };
@@ -89,9 +99,14 @@
   function crearOpcion(id, etiqueta) {
     const b = document.createElement("button");
     b.type = "button"; b.className = "fondo-op"; b.dataset.fondoId = id; b.setAttribute("aria-pressed", "false");
-    const v = document.createElement("span"); v.className = "fondo-vista" + (id === "ninguno" ? " fondo-sin-vista" : "");
-    if (id === "ninguno") v.textContent = "—"; else v.setAttribute("data-fondo-vista", id);
-    const t = document.createElement("span"); t.textContent = etiqueta;
+    // Miniatura al estilo de Windows 11: el fondo y, encima, una ventanita con la barra del color de acento
+    const v = document.createElement("span"); v.className = "fondo-vista";
+    const papel = document.createElement("span"); papel.className = "papel"; papel.setAttribute("aria-hidden", "true");
+    if (id !== "ninguno") papel.setAttribute("data-fondo-vista", id);
+    const ven = document.createElement("span"); ven.className = "mini-ventana"; ven.setAttribute("aria-hidden", "true");
+    const barra = document.createElement("span"); barra.className = "mini-barra";
+    ven.appendChild(barra); v.append(papel, ven);
+    const t = document.createElement("span"); t.className = "fondo-nombre"; t.textContent = etiqueta;
     b.append(v, t);
     b.addEventListener("click", () => { fondoMsg.textContent = ""; Fondo.set(id); pintarFondo(); });
     fondosCaja.appendChild(b); opciones.push(b);
@@ -103,6 +118,8 @@
     const a = Fondo.get();
     opciones.forEach((b) => { const s = b.dataset.fondoId === a; b.classList.toggle("selected", s); b.setAttribute("aria-pressed", String(s)); });
     opImg.hidden = !Fondo.hayImagen();
+    // La miniatura de «Mi imagen» usa la foto guardada aunque ahora esté elegido otro fondo
+    try { const im = localStorage.getItem("fondo-img"); if (im && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(im)) opImg.querySelector(".papel").style.setProperty("--fondo-img", 'url("' + im + '")'); } catch (e) { /* nada */ }
     document.getElementById("fondo-reset").disabled = a === "ninguno" && !Fondo.hayImagen();
   }
   document.getElementById("fondo-reset").addEventListener("click", () => { fondoMsg.textContent = ""; Fondo.restablecer(); pintarFondo(); });

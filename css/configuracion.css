@@ -271,3 +271,9 @@
 .vis-cuerpo .vis-opciones, .vis-cuerpo .vis-invitados, .vis-cuerpo .vis-msg { margin-left: 0; max-width: 560px; }
 @media (max-width: 640px) { .vis-cuerpo { padding-left: 16px; } }
 @media (prefers-reduced-motion: reduce) { .vis-despl, .vis-card.abierta .vis-despl, .vis-chev svg { transition: none; } }
+
+/* Fondo, Color de acento y Sesiones activas usan la misma tarjeta plegable */
+.vis-card .acento-cuerpo, .vis-card .fondo-cuerpo { border-top: 0; padding-top: 0; }
+.plegable-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.vis-card .sesiones { margin-top: 10px; }
+.vis-card .vis-cuerpo > .f-error:empty { display: none; }

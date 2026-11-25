@@ -434,16 +434,47 @@
     var s = leerSesion();
     if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
     return rpc("amistad", { p_token: s.token, p_id: id, p_accion: accion }).then(function (r) {
-      return r.ok ? { ok: true, amigo: !!r.amigo, mejor: !!r.mejor, amigos: Number(r.amigos) || 0 } : { ok: false, error: r.error || "error" };
+      if (!r.ok) return { ok: false, error: r.error || "error" };
+      return { ok: true, amigo: !!r.amigo, mejor: !!r.mejor, amigos: Number(r.amigos) || 0,
+        amigo_enviada: !!r.amigo_enviada, amigo_recibida: !!r.amigo_recibida, mejor_enviada: !!r.mejor_enviada, mejor_recibida: !!r.mejor_recibida };
     });
   }
-  // Icono de «mejor amigo» (una estrella) para ponerlo junto al nombre
-  var ESTRELLA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.5l6-.8z"/></svg>';
+  // Notificaciones: por ahora, solicitudes de amistad / de mejor amigo pendientes
+  function notificacionesCantidad() {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false });
+    return rpc("notificaciones_cantidad", { p_token: s.token }).then(function (r) {
+      return r.ok ? { ok: true, total: Number(r.total) || 0 } : { ok: false };
+    });
+  }
+  function notificaciones() {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false });
+    return rpc("notificaciones", { p_token: s.token }).then(function (r) {
+      return r.ok ? { ok: true, total: Number(r.total) || 0, items: Array.isArray(r.items) ? r.items : [] } : { ok: false };
+    });
+  }
+  // Iconos con el estilo de Windows 11 (Fluent): contorno redondeado y de trazo fino
+  var ICONOS = {
+    campana: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a5.5 5.5 0 0 0-5.5 5.5v3.2c0 .5-.2 1-.5 1.4L4.6 15.4c-.5.7 0 1.6.8 1.6h13.2c.8 0 1.3-.9.8-1.6L18 13.6c-.3-.4-.5-.9-.5-1.4V9A5.5 5.5 0 0 0 12 3.5z"/><path d="M9.7 19.8a2.5 2.5 0 0 0 4.6 0"/></svg>',
+    persona: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.5"/><path d="M5.5 19.5v-.6a3.9 3.9 0 0 1 3.9-3.9h5.2a3.9 3.9 0 0 1 3.9 3.9v.6"/></svg>',
+    personas: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M2.8 19.3v-.5a3.8 3.8 0 0 1 3.8-3.8h4.8a3.8 3.8 0 0 1 3.8 3.8v.5"/><path d="M15.6 5.1a3.1 3.1 0 0 1 0 5.8"/><path d="M18.2 15.2a3.6 3.6 0 0 1 3 3.6v.5"/></svg>',
+    personaMas: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="7.5" r="3.5"/><path d="M3 19.5v-.6A3.9 3.9 0 0 1 6.9 15h5.2a3.9 3.9 0 0 1 2.4.8"/><path d="M18 14.5v6M15 17.5h6"/></svg>',
+    personaFlecha: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="7.5" r="3.5"/><path d="M3 19.5v-.6A3.9 3.9 0 0 1 6.9 15h4.7"/><path d="M15 18h6M18.5 15.5L21 18l-2.5 2.5"/></svg>',
+    personaCheck: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="7.5" r="3.5"/><path d="M3 19.5v-.6A3.9 3.9 0 0 1 6.9 15h4.7"/><path d="M14.5 18l2.2 2.2 4-4.4"/></svg>',
+    personaCorazon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="7.5" r="3.5"/><path d="M3 19.5v-.6A3.9 3.9 0 0 1 6.9 15h3.8"/><path d="M17.8 20.8s-3.3-1.9-3.3-4.2a1.9 1.9 0 0 1 3.3-1.2 1.9 1.9 0 0 1 3.3 1.2c0 2.3-3.3 4.2-3.3 4.2z"/></svg>',
+    personaMenos: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="7.5" r="3.5"/><path d="M3 19.5v-.6A3.9 3.9 0 0 1 6.9 15h5.2a3.9 3.9 0 0 1 2.4.8"/><path d="M15 17.5h6"/></svg>',
+    reloj: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+    ok: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    cerrar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+  };
+  // «Mejor amigo»: dos personas doradas (relleno, como los iconos «llenos» de Windows 11)
+  var DOS_PERSONAS_ORO = '<svg viewBox="0 0 24 24" aria-hidden="true"><g class="atras"><circle cx="17.2" cy="8.8" r="2.7"/><path d="M16.8 14.3c2.7.1 4.7 1.9 4.7 4.4 0 1-.7 1.8-1.7 1.8h-2.6c.3-.5.4-1 .4-1.6 0-1.8-.8-3.4-2.1-4.4.4-.1.8-.2 1.3-.2z"/></g><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19.1c0-2.7 2.2-4.8 4.9-4.8h3.2c2.7 0 4.9 2.1 4.9 4.8 0 .8-.6 1.4-1.4 1.4H3.9c-.8 0-1.4-.6-1.4-1.4z"/></svg>';
   function iconoMejor() {
     var e = document.createElement("span");
     e.className = "mejor-ico"; e.setAttribute("role", "img");
     var tt = window.I18n && window.I18n.t ? window.I18n.t("Mejor amigo") : "Mejor amigo";
-    e.setAttribute("aria-label", tt); e.title = tt; e.innerHTML = ESTRELLA;
+    e.setAttribute("aria-label", tt); e.title = tt; e.innerHTML = DOS_PERSONAS_ORO;
     return e;
   }
   function listaUsuarios() {
@@ -500,6 +531,11 @@
     perfilUsuario: perfilUsuario,
     seguir: seguir,
     amistad: amistad,
+    notificacionesCantidad: notificacionesCantidad,
+    notificaciones: notificaciones,
+    refrescarNotificaciones: function () { refrescarNotif(); },
+    iconos: ICONOS,
+    dosPersonasOro: DOS_PERSONAS_ORO,
     iconoMejor: iconoMejor,
     listaUsuarios: listaUsuarios,
     estadosUsuarios: estadosUsuarios,
@@ -838,6 +874,112 @@
   var ICONO_AJUSTES = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
   var ICONO_SALIR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>';
 
+  // ---------- Notificaciones (botón de la barra, encima de la foto de perfil) ----------
+  // Por ahora avisan de las solicitudes de amistad y de mejor amigo; desde aquí se pueden aceptar o rechazar.
+  var RE_AVATAR = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/;
+  var refrescarNotif = function () { /* hasta que se crea el botón */ };
+  function iniciarNotificaciones(cuentaBtn) {
+    var tr = function (x) { return window.I18n && window.I18n.t ? window.I18n.t(x) : x; };
+    var btn = el("button", { type: "button", class: "side-btn notif-btn", "aria-haspopup": "dialog", "aria-expanded": "false", "aria-label": "Notificaciones", "data-tooltip": "Notificaciones" });
+    var ic = el("span", { class: "notif-ico", "aria-hidden": "true" });
+    ic.innerHTML = ICONOS.campana;
+    var badge = el("span", { class: "notif-badge", "aria-hidden": "true" });
+    badge.hidden = true;
+    ic.appendChild(badge);
+    btn.appendChild(ic);
+    btn.appendChild(el("span", { class: "label" }, "Notificaciones"));
+    cuentaBtn.parentNode.insertBefore(btn, cuentaBtn);
+
+    var total = -1, panel = null, lista = null;
+    function poner(n) {
+      var antes = total; total = Math.max(0, n);
+      badge.textContent = total > 9 ? "9+" : String(total);
+      badge.hidden = total === 0;
+      var t = tr("Notificaciones") + (total ? " (" + total + ")" : "");
+      btn.setAttribute("aria-label", t); btn.setAttribute("data-tooltip", t);
+      if (antes !== -1 && antes !== total) {
+        try { window.dispatchEvent(new Event("notif-cambio")); } catch (e) { /* nada */ }
+      }
+    }
+    function contar() {
+      if (document.hidden) return;
+      notificacionesCantidad().then(function (r) { if (r.ok) poner(r.total); });
+    }
+    poner(0); total = -1;
+    contar();
+    refrescarNotif = function () { notificacionesCantidad().then(function (r) { if (r.ok) poner(r.total); }); };
+    setInterval(contar, 10000);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) contar(); });
+
+    function cerrar(devolverFoco) {
+      if (!panel) return;
+      panel.remove(); panel = null; lista = null;
+      btn.setAttribute("aria-expanded", "false"); btn.classList.remove("abierto");
+      document.removeEventListener("pointerdown", fuera, true);
+      document.removeEventListener("keydown", teclas, true);
+      if (devolverFoco) btn.focus();
+    }
+    function fuera(e) { if (panel && !panel.contains(e.target) && !btn.contains(e.target)) cerrar(false); }
+    function teclas(e) { if (e.key === "Escape") { e.preventDefault(); cerrar(true); } }
+    function vacio(texto) { lista.textContent = ""; lista.appendChild(el("p", { class: "notif-vacio" }, texto)); }
+    function fila(it) {
+      var mejor = it.tipo === "mejor";
+      var av = el("a", { class: "notif-av", href: "perfil.html?id=" + encodeURIComponent(it.id), "aria-hidden": "true", tabindex: "-1" });
+      var a = el("span", {});
+      rellenarAvatar(a, { usuario: it.usuario || it.nombre, avatar: typeof it.avatar === "string" && RE_AVATAR.test(it.avatar) ? it.avatar : null }, false);
+      av.appendChild(a);
+      var nombre = el("a", { class: "notif-nombre", href: "perfil.html?id=" + encodeURIComponent(it.id) }, String(it.nombre));
+      var txt = el("span", { class: "notif-txt" }, mejor ? "quiere ser tu mejor amigo" : "te envió una solicitud de amistad");
+      var ok = el("button", { type: "button", class: "btn notif-acepta" }, mejor ? "Aceptar mejor amigo" : "Aceptar amigo");
+      var no = el("button", { type: "button", class: "btn secondary notif-rechaza" }, "Rechazar");
+      var msg = el("p", { class: "f-error notif-msg", role: "alert" });
+      var f = el("div", { class: "notif-fila" }, av,
+        el("div", { class: "notif-cuerpo" }, el("div", { class: "notif-linea" }, nombre, document.createTextNode(" "), txt),
+          el("div", { class: "notif-botones" }, ok, no), msg));
+      function resolver(accion) {
+        ok.disabled = no.disabled = true; msg.textContent = "";
+        amistad(it.id, accion).then(function (r) {
+          if (!r.ok) { ok.disabled = no.disabled = false; msg.textContent = tr("No se pudo actualizar la amistad."); return; }
+          f.classList.add("sale");
+          setTimeout(function () {
+            f.remove();
+            if (lista && !lista.querySelector(".notif-fila")) vacio(tr("No tienes notificaciones."));
+          }, 260);
+          poner(total - 1); contar();
+        });
+      }
+      ok.addEventListener("click", function () { resolver(mejor ? "aceptar_mejor" : "aceptar"); });
+      no.addEventListener("click", function () { resolver(mejor ? "rechazar_mejor" : "rechazar"); });
+      return f;
+    }
+    function abrir() {
+      document.dispatchEvent(new CustomEvent("barra-menu", { detail: "notif" }));
+      lista = el("div", { class: "notif-lista" });
+      panel = el("div", { class: "cuenta-menu notif-menu", role: "dialog", "aria-label": "Notificaciones" },
+        el("div", { class: "notif-tit" }, "Notificaciones"), lista);
+      vacio(tr("Cargando…"));
+      document.body.appendChild(panel);
+      var r = btn.getBoundingClientRect();
+      panel.style.left = Math.round(r.right + 14) + "px";
+      panel.style.bottom = Math.max(8, Math.round(window.innerHeight - r.bottom)) + "px";
+      btn.setAttribute("aria-expanded", "true"); btn.classList.add("abierto");
+      document.addEventListener("pointerdown", fuera, true);
+      document.addEventListener("keydown", teclas, true);
+      var mio = panel;
+      notificaciones().then(function (r) {
+        if (panel !== mio) return;
+        if (!r.ok) { vacio(tr("No se pudieron cargar las notificaciones.")); return; }
+        poner(r.total);
+        if (!r.items.length) { vacio(tr("No tienes notificaciones.")); return; }
+        lista.textContent = "";
+        r.items.forEach(function (it) { lista.appendChild(fila(it)); });
+      });
+    }
+    btn.addEventListener("click", function () { if (panel) cerrar(false); else abrir(); });
+    document.addEventListener("barra-menu", function (e) { if (e.detail !== "notif") cerrar(false); });
+    window.addEventListener("resize", function () { cerrar(false); });
+  }
+
   // En la barra, el botón de "Configuración" pasa a ser la foto del usuario;
   // al pulsarla se abre un menú con las secciones de la cuenta.
   function convertirBotonDeCuenta() {
@@ -883,6 +1025,7 @@
       else if (e.key === "Tab") cerrar(false);
     }
     function abrir() {
+      document.dispatchEvent(new CustomEvent("barra-menu", { detail: "cuenta" }));
       var actual = usuarioActual() || u;
       // Al pulsar la foto y el nombre se va a la página de la cuenta (perfil)
       var cab = el("a", { class: "cuenta-cab", role: "menuitem", href: "perfil.html", "aria-label": "Ir a mi perfil" }, (function () { var a = el("span", {}); rellenarAvatar(a, actual, true); return a; })(),
@@ -934,7 +1077,9 @@
       if (e.key === "ArrowUp" && !menu) { e.preventDefault(); abrir(); }
     });
     window.addEventListener("resize", function () { cerrar(false); });
+    document.addEventListener("barra-menu", function (e) { if (e.detail !== "cuenta") cerrar(false); });
     if (yaEstaEnConfig) btn.classList.add("actual");
+    iniciarNotificaciones(btn);
   }
 
   document.addEventListener("DOMContentLoaded", function () {

@@ -189,11 +189,13 @@ body {
 }
 
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .sidebar {
-    background: var(--flyout-glass);
-    -webkit-backdrop-filter: blur(30px) saturate(1.25);
-    backdrop-filter: blur(30px) saturate(1.25);
+  /* Cristal esmerilado (acrílico de Windows 11): translúcida y difuminada; se apaga con el interruptor «Difuminado» */
+  html:not([data-blur="off"]) .sidebar {
+    background: color-mix(in srgb, var(--flyout) 58%, transparent);
+    -webkit-backdrop-filter: blur(28px) saturate(1.5);
+    backdrop-filter: blur(28px) saturate(1.5);
   }
+  html[data-blur="off"] .sidebar { background: var(--flyout-glass); }
 }
 
 .sb-open .sidebar { width: var(--sb-expanded); }
@@ -460,7 +462,8 @@ body.pagina-principal { --content-w: 1100px; }
 .u-nombre { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 14px; color: var(--text); }
 .u-nombre-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mejor-ico { display: inline-grid; place-items: center; flex-shrink: 0; color: #f2b01e; }
-.mejor-ico svg { display: block; width: 15px; height: 15px; fill: currentColor; stroke: currentColor; stroke-width: 1.2; stroke-linejoin: round; }
+.mejor-ico svg { display: block; width: 17px; height: 17px; fill: currentColor; stroke: none; filter: drop-shadow(0 0 .5px rgba(160, 100, 0, .55)); }
+.mejor-ico svg .atras { opacity: .62; }
 .u-estado { font-size: 12px; color: var(--muted); min-height: 1em; }
 .u-fila.online .u-estado { color: #1d9a52; }
 

@@ -74,16 +74,17 @@
             </div>
           </div>
 
-          <div class="setting-card acento-card" id="acento">
-            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0 0 18c1.4 0 2-1 1.6-2-.5-1.2.2-2.5 1.6-2.5H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/></svg></span>
-            <div class="setting-text">
-              <div class="setting-title">Color de acento</div>
-              <div class="setting-desc">Elige un color sólido o un degradado</div>
-            </div>
-            <div class="setting-control">
-              <button type="button" class="btn secondary" id="acento-reset">Restablecer</button>
-            </div>
-            <div class="acento-cuerpo">
+          <div class="setting-card vis-card acento-card" id="acento" data-plegable>
+            <button type="button" class="vis-cab" id="acento-cab" aria-expanded="false" aria-controls="acento-cuerpo">
+              <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0 0 18c1.4 0 2-1 1.6-2-.5-1.2.2-2.5 1.6-2.5H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/></svg></span>
+              <span class="vis-cab-texto"><span class="setting-title">Color de acento</span><span class="setting-desc">Elige un color sólido o un degradado</span></span>
+              <span class="vis-chev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+            </button>
+            <div class="vis-despl" id="acento-cuerpo" role="region" aria-labelledby="acento-cab" inert>
+              <div class="vis-despl-int">
+                <div class="vis-cuerpo">
+                <div class="plegable-acciones"><button type="button" class="btn secondary" id="acento-reset">Restablecer</button></div>
+<div class="acento-cuerpo">
               <div class="acento-sub">Recomendados</div>
               <div class="muestras" id="acento-recom" role="group" aria-label="Recomendados"></div>
               <div class="acento-sub">Personalizado</div>
@@ -103,18 +104,22 @@
                 <div class="acento-vista" id="acento-vista" aria-hidden="true"></div>
               </div>
             </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="setting-card fondo-card" id="fondo">
-            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></svg></span>
-            <div class="setting-text">
-              <div class="setting-title">Fondo de la página</div>
-              <div class="setting-desc">Degradados, patrones o una imagen tuya</div>
-            </div>
-            <div class="setting-control">
-              <button type="button" class="btn secondary" id="fondo-reset">Restablecer a normal</button>
-            </div>
-            <div class="fondo-cuerpo">
+          <div class="setting-card vis-card fondo-card" id="fondo" data-plegable>
+            <button type="button" class="vis-cab" id="fondo-cab" aria-expanded="false" aria-controls="fondo-cuerpo">
+              <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></svg></span>
+              <span class="vis-cab-texto"><span class="setting-title">Fondo de la página</span><span class="setting-desc">Degradados, patrones o una imagen tuya</span></span>
+              <span class="vis-chev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+            </button>
+            <div class="vis-despl" id="fondo-cuerpo" role="region" aria-labelledby="fondo-cab" inert>
+              <div class="vis-despl-int">
+                <div class="vis-cuerpo">
+                <div class="plegable-acciones"><button type="button" class="btn secondary" id="fondo-reset">Restablecer a normal</button></div>
+<div class="fondo-cuerpo">
               <div class="fondos" id="fondos" role="group" aria-label="Fondos"></div>
               <div class="fondo-acciones">
                 <button type="button" class="btn secondary" id="fondo-subir">Elegir imagen…</button>
@@ -123,16 +128,19 @@
               </div>
               <p class="f-error" id="fondo-msg" role="alert"></p>
             </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="setting-card">
             <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s6 6.2 6 10.5a6 6 0 0 1-12 0C6 9.2 12 3 12 3z"/></svg></span>
             <div class="setting-text">
-              <div class="setting-title">Difuminado de las tarjetas</div>
-              <div class="setting-desc">Efecto de cristal esmerilado (blur) en las tarjetas; se nota sobre fondos con color o imagen</div>
+              <div class="setting-title">Difuminado de tarjetas y barra</div>
+              <div class="setting-desc">Efecto de cristal esmerilado (blur) en las tarjetas y en la barra lateral; se nota sobre fondos con color o imagen</div>
             </div>
             <div class="setting-control">
-              <label class="interruptor"><input type="checkbox" id="blur-chk" role="switch" aria-label="Difuminado de las tarjetas"><span class="riel" aria-hidden="true"></span></label>
+              <label class="interruptor"><input type="checkbox" id="blur-chk" role="switch" aria-label="Difuminado de tarjetas y barra"><span class="riel" aria-hidden="true"></span></label>
             </div>
           </div>
 
@@ -225,19 +233,25 @@
               </div>
             </form>
 
-            <div class="setting-card sesiones-card">
+            <div class="setting-card vis-card sesiones-card" id="sesiones" data-plegable>
+            <button type="button" class="vis-cab" id="sesiones-cab" aria-expanded="false" aria-controls="sesiones-cuerpo">
               <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span>
-              <div class="setting-text">
-                <div class="setting-title">Sesiones activas</div>
-                <div class="setting-desc">Dispositivos con la sesión de tu cuenta abierta</div>
+              <span class="vis-cab-texto"><span class="setting-title">Sesiones activas</span><span class="setting-desc">Dispositivos con la sesión de tu cuenta abierta</span></span>
+              <span class="vis-chev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+            </button>
+            <div class="vis-despl" id="sesiones-cuerpo" role="region" aria-labelledby="sesiones-cab" inert>
+              <div class="vis-despl-int">
+                <div class="vis-cuerpo">
+                <div class="plegable-acciones">
+                  <button class="btn secondary" id="sesiones-actualizar" type="button">Actualizar</button>
+                  <button class="btn secondary" id="sesiones-otras" type="button" hidden>Cerrar las demás</button>
+                </div>
                 <p class="f-error" id="sesiones-msg" role="status"></p>
+                <ul class="sesiones" id="sesiones-lista"></ul>
+                </div>
               </div>
-              <div class="setting-control">
-                <button class="btn secondary" id="sesiones-actualizar" type="button">Actualizar</button>
-                <button class="btn secondary" id="sesiones-otras" type="button" hidden>Cerrar las demás</button>
-              </div>
-              <ul class="sesiones" id="sesiones-lista"></ul>
             </div>
+          </div>
 
             <div class="setting-card historial-card">
               <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>

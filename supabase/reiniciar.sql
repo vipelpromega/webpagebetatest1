@@ -2,7 +2,7 @@
 -- Conserva la tabla `admins` (tu autorización del panel).
 -- OJO: también borra la contraseña maestra (hay que volver a fijarla).
 -- Después ejecuta schema.sql para volver a crear todo.
-drop table if exists public.amistades, public.seguimientos, public.codigos, public.sesiones, public.usuarios, public.historial,
+drop table if exists public.solicitudes_amistad, public.amistades, public.seguimientos, public.codigos, public.sesiones, public.usuarios, public.historial,
                      public.intentos, public.auditoria cascade;
 drop schema if exists privado cascade;
 
@@ -48,6 +48,8 @@ drop function if exists public.guardar_estado(text, text);
 drop function if exists public.desconectando(text);
 drop function if exists public.seguir(text, uuid, boolean);
 drop function if exists public.amistad(text, uuid, text);
+drop function if exists public.notificaciones_cantidad(text);
+drop function if exists public.notificaciones(text);
 drop function if exists public.guardar_visibilidad_seguim(text, text[]);
 drop function if exists public.lista_seguimiento(text, uuid, text);
 drop function if exists public.perfil_usuario(text, uuid);

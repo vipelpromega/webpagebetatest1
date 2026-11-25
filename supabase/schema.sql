@@ -840,8 +840,9 @@ create index if not exists seguimientos_seguido_idx on public.seguimientos (segu
 alter table public.seguimientos enable row level security;
 revoke all on table public.seguimientos from public, anon, authenticated;
 
--- Amistades: «usuario» tiene a «amigo» en su lista de amigos (la agrega quien la tiene; no hace falta aceptación).
--- «mejor»: además lo marcó como mejor amigo (solo se puede si ya es amigo; solo lo ve quien lo marcó).
+-- Amistades: son de dos sentidos. Cuando alguien acepta una solicitud se guardan las dos filas
+-- (usuario→amigo y amigo→usuario), así «los amigos de X» sigue siendo «las filas donde usuario = X».
+-- «mejor»: ambos son mejores amigos (también de dos sentidos; se activa en las dos filas al aceptar).
 create table if not exists public.amistades (
   usuario uuid not null references public.usuarios(id) on delete cascade,
   amigo   uuid not null references public.usuarios(id) on delete cascade,
@@ -853,6 +854,37 @@ create table if not exists public.amistades (
 create index if not exists amistades_amigo_idx on public.amistades (amigo);
 alter table public.amistades enable row level security;
 revoke all on table public.amistades from public, anon, authenticated;
+
+-- Solicitudes pendientes: «de» le pide a «para» ser su amigo ('amigo') o su mejor amigo ('mejor', solo entre amigos).
+-- Son las notificaciones de la barra: cada fila pendiente es una notificación para «para».
+create table if not exists public.solicitudes_amistad (
+  de     uuid not null references public.usuarios(id) on delete cascade,
+  para   uuid not null references public.usuarios(id) on delete cascade,
+  tipo   text not null check (tipo in ('amigo', 'mejor')),
+  creado timestamptz not null default now(),
+  primary key (de, para, tipo),
+  check (de <> para)
+);
+create index if not exists solicitudes_amistad_para_idx on public.solicitudes_amistad (para, creado desc);
+alter table public.solicitudes_amistad enable row level security;
+revoke all on table public.solicitudes_amistad from public, anon, authenticated;
+
+-- Migración desde las amistades de un solo sentido (versión anterior, sin aceptación): cada amistad que no
+-- tiene su pareja pasa a ser una solicitud pendiente para la otra persona. Las ya recíprocas se quedan igual.
+-- No hace nada cuando todas las filas ya son de dos sentidos (así se puede volver a ejecutar sin riesgo).
+do $$
+begin
+  insert into public.solicitudes_amistad (de, para, tipo)
+  select a.usuario, a.amigo, 'amigo'
+    from public.amistades a
+   where not exists (select 1 from public.amistades r where r.usuario = a.amigo and r.amigo = a.usuario)
+  on conflict do nothing;
+  delete from public.amistades a
+   where not exists (select 1 from public.amistades r where r.usuario = a.amigo and r.amigo = a.usuario);
+  -- «mejor» solo existe si lo son los dos
+  update public.amistades a set mejor = false
+   where a.mejor and not exists (select 1 from public.amistades r where r.usuario = a.amigo and r.amigo = a.usuario and r.mejor);
+end $$;
 
 -- ¿Puede quien mira (v_id, o un invitado) ver el estado real de «u»?
 --  · El propio estado siempre.
@@ -898,12 +930,35 @@ begin
     'seguidores', (select count(*) from public.seguimientos s join public.usuarios x on x.id = s.seguidor where s.seguido = p_id and not x.suspendida));
 end $$;
 
--- Amigos: 'agregar', 'quitar', 'mejor' (marcar mejor amigo, solo si ya es amigo) o 'no_mejor'
+-- Estado de la relación de amistad entre «v» (quien mira) y «p_id», para devolverlo al cliente
+create or replace function privado.estado_amistad(p_v uuid, p_id uuid)
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'amigo', exists (select 1 from public.amistades a where a.usuario = p_v and a.amigo = p_id),
+    'mejor', exists (select 1 from public.amistades a where a.usuario = p_v and a.amigo = p_id and a.mejor),
+    'amigo_enviada',   exists (select 1 from public.solicitudes_amistad s where s.de = p_v and s.para = p_id and s.tipo = 'amigo'),
+    'amigo_recibida',  exists (select 1 from public.solicitudes_amistad s where s.de = p_id and s.para = p_v and s.tipo = 'amigo'),
+    'mejor_enviada',   exists (select 1 from public.solicitudes_amistad s where s.de = p_v and s.para = p_id and s.tipo = 'mejor'),
+    'mejor_recibida',  exists (select 1 from public.solicitudes_amistad s where s.de = p_id and s.para = p_v and s.tipo = 'mejor'),
+    'amigos', (select count(*) from public.amistades am join public.usuarios x on x.id = am.amigo where am.usuario = p_id and not x.suspendida))
+$$;
+
+-- Amistades con aceptación. Acciones:
+--  'agregar'          envía una solicitud de amistad (si la otra persona ya te había enviado una, se acepta sola)
+--  'cancelar'         retira la solicitud de amistad que enviaste
+--  'aceptar'          acepta la solicitud de amistad que te enviaron
+--  'rechazar'         rechaza la solicitud de amistad que te enviaron
+--  'quitar'           deja de ser amigo (de los dos lados; también deja de ser mejor amigo)
+--  'mejor'            envía una solicitud de mejor amigo (solo si ya son amigos; si te la habían enviado, se acepta sola)
+--  'cancelar_mejor'   retira la solicitud de mejor amigo que enviaste
+--  'aceptar_mejor'    acepta la solicitud de mejor amigo que te enviaron
+--  'rechazar_mejor'   rechaza la solicitud de mejor amigo que te enviaron
+--  'no_mejor'         deja de ser mejor amigo (de los dos lados; siguen siendo amigos)
 create or replace function public.amistad(p_token text, p_id uuid, p_accion text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v public.usuarios;
-  a public.amistades;
+  v_amigos boolean;
 begin
   v := privado.usuario_de_token(p_token);
   if v.id is null then
@@ -912,25 +967,101 @@ begin
   if p_id is null or p_id = v.id then
     return jsonb_build_object('ok', false, 'error', 'propio');
   end if;
-  if p_accion is null or p_accion not in ('agregar', 'quitar', 'mejor', 'no_mejor') then
+  if p_accion is null or p_accion not in ('agregar', 'cancelar', 'aceptar', 'rechazar', 'quitar',
+                                          'mejor', 'cancelar_mejor', 'aceptar_mejor', 'rechazar_mejor', 'no_mejor') then
     return jsonb_build_object('ok', false, 'error', 'accion');
   end if;
   if not exists (select 1 from public.usuarios where id = p_id and not suspendida) then
     return jsonb_build_object('ok', false, 'error', 'no_existe');
   end if;
+  v_amigos := exists (select 1 from public.amistades where usuario = v.id and amigo = p_id);
+
   if p_accion = 'agregar' then
-    insert into public.amistades (usuario, amigo) values (v.id, p_id) on conflict do nothing;
-  elsif p_accion = 'quitar' then
-    delete from public.amistades where usuario = v.id and amigo = p_id;   -- también deja de ser mejor amigo
-  else
-    update public.amistades set mejor = (p_accion = 'mejor') where usuario = v.id and amigo = p_id;
-    if not found then
-      return jsonb_build_object('ok', false, 'error', 'no_amigo');
+    if not v_amigos then
+      if exists (select 1 from public.solicitudes_amistad where de = p_id and para = v.id and tipo = 'amigo') then
+        p_accion := 'aceptar';                          -- las dos personas quieren: queda aceptada
+      else
+        insert into public.solicitudes_amistad (de, para, tipo) values (v.id, p_id, 'amigo') on conflict do nothing;
+      end if;
     end if;
   end if;
-  select * into a from public.amistades where usuario = v.id and amigo = p_id;
-  return jsonb_build_object('ok', true, 'amigo', a.usuario is not null, 'mejor', coalesce(a.mejor, false),
-    'amigos', (select count(*) from public.amistades am join public.usuarios x on x.id = am.amigo where am.usuario = p_id and not x.suspendida));
+
+  if p_accion = 'aceptar' then
+    if not exists (select 1 from public.solicitudes_amistad where de = p_id and para = v.id and tipo = 'amigo') and not v_amigos then
+      return jsonb_build_object('ok', false, 'error', 'sin_solicitud');
+    end if;
+    insert into public.amistades (usuario, amigo) values (v.id, p_id), (p_id, v.id) on conflict do nothing;
+    delete from public.solicitudes_amistad where tipo = 'amigo' and ((de = p_id and para = v.id) or (de = v.id and para = p_id));
+  elsif p_accion = 'cancelar' then
+    delete from public.solicitudes_amistad where de = v.id and para = p_id and tipo = 'amigo';
+  elsif p_accion = 'rechazar' then
+    delete from public.solicitudes_amistad where de = p_id and para = v.id and tipo = 'amigo';
+  elsif p_accion = 'quitar' then
+    delete from public.amistades where (usuario = v.id and amigo = p_id) or (usuario = p_id and amigo = v.id);
+    delete from public.solicitudes_amistad where (de = v.id and para = p_id) or (de = p_id and para = v.id);
+  elsif p_accion = 'mejor' then
+    if not v_amigos then
+      return jsonb_build_object('ok', false, 'error', 'no_amigo');       -- solo entre amigos
+    end if;
+    if exists (select 1 from public.solicitudes_amistad where de = p_id and para = v.id and tipo = 'mejor') then
+      p_accion := 'aceptar_mejor';
+    else
+      insert into public.solicitudes_amistad (de, para, tipo) values (v.id, p_id, 'mejor') on conflict do nothing;
+    end if;
+  end if;
+
+  if p_accion = 'aceptar_mejor' then
+    if not v_amigos then
+      return jsonb_build_object('ok', false, 'error', 'no_amigo');
+    end if;
+    if not exists (select 1 from public.solicitudes_amistad where de = p_id and para = v.id and tipo = 'mejor') then
+      return jsonb_build_object('ok', false, 'error', 'sin_solicitud');
+    end if;
+    update public.amistades set mejor = true where (usuario = v.id and amigo = p_id) or (usuario = p_id and amigo = v.id);
+    delete from public.solicitudes_amistad where tipo = 'mejor' and ((de = p_id and para = v.id) or (de = v.id and para = p_id));
+  elsif p_accion = 'cancelar_mejor' then
+    delete from public.solicitudes_amistad where de = v.id and para = p_id and tipo = 'mejor';
+  elsif p_accion = 'rechazar_mejor' then
+    delete from public.solicitudes_amistad where de = p_id and para = v.id and tipo = 'mejor';
+  elsif p_accion = 'no_mejor' then
+    update public.amistades set mejor = false where (usuario = v.id and amigo = p_id) or (usuario = p_id and amigo = v.id);
+    delete from public.solicitudes_amistad where tipo = 'mejor' and ((de = v.id and para = p_id) or (de = p_id and para = v.id));
+  end if;
+
+  return jsonb_build_object('ok', true) || privado.estado_amistad(v.id, p_id);
+end $$;
+
+-- Notificaciones de la barra: por ahora, las solicitudes de amistad / de mejor amigo que te enviaron y siguen pendientes.
+-- Solo el número (ligero; se consulta a menudo) y la lista completa (al abrir el panel)
+create or replace function public.notificaciones_cantidad(p_token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  return jsonb_build_object('ok', true, 'total', (
+    select count(*) from public.solicitudes_amistad s join public.usuarios x on x.id = s.de
+     where s.para = v.id and not x.suspendida));
+end $$;
+
+create or replace function public.notificaciones(p_token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v public.usuarios;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  return jsonb_build_object('ok', true,
+    'total', (select count(*) from public.solicitudes_amistad s join public.usuarios x on x.id = s.de where s.para = v.id and not x.suspendida),
+    'items', coalesce((
+      select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
+                                          'tipo', s.tipo, 'creado', s.creado) order by s.creado desc, x.id)
+        from (select * from public.solicitudes_amistad where para = v.id order by creado desc limit 30) s
+        join public.usuarios x on x.id = s.de
+       where not x.suspendida), '[]'::jsonb));
 end $$;
 
 -- ¿Puede quien mira (p_v) ver las listas de seguidores / seguidos / amigos de «p_u»? Solo usuarios con sesión; misma lógica que el estado.
@@ -1032,6 +1163,10 @@ begin
       'ver_seguim', privado.ve_seguim(u.id, u.visibilidades_seguim, v.id),
       'amigo', v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id),
       'mejor', v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id and a.mejor),
+      'amigo_enviada',  v_miembro and exists (select 1 from public.solicitudes_amistad x where x.de = v.id and x.para = u.id and x.tipo = 'amigo'),
+      'amigo_recibida', v_miembro and exists (select 1 from public.solicitudes_amistad x where x.de = u.id and x.para = v.id and x.tipo = 'amigo'),
+      'mejor_enviada',  v_miembro and exists (select 1 from public.solicitudes_amistad x where x.de = v.id and x.para = u.id and x.tipo = 'mejor'),
+      'mejor_recibida', v_miembro and exists (select 1 from public.solicitudes_amistad x where x.de = u.id and x.para = v.id and x.tipo = 'mejor'),
       'sigo', v_miembro and exists (select 1 from public.seguimientos s where s.seguidor = v.id and s.seguido = u.id),
       'estado', case when v_ver and privado.en_linea(u.visto, u.saliendo, u.estado_manual) then 'online' else 'offline' end));
 end $$;
@@ -1040,7 +1175,7 @@ end $$;
 -- Quien no puede ver el estado de alguien lo ve siempre «offline» (no se revela nada):
 --  · Con sesión: el estado real de quien eligió «Todos», o «Personas que sigo»/«Seguidores» si corresponde (y el propio siempre).
 --  · Invitado (sin token): el estado real solo de quien eligió «Todos» + «visible para invitados».
--- «Personas que sigo» y «Seguidores» muestran el estado a quien corresponda (ver privado.ve_estado); Amigos y Mejores amigos aún no hacen nada.
+-- «Personas que sigo» y «Seguidores» muestran el estado a quien corresponda (ver privado.ve_estado); «Amigos» y «Mejores amigos» muestran el estado a las amistades ya aceptadas.
 create or replace function public.lista_usuarios(p_token text default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -1668,6 +1803,9 @@ revoke all on function public.guardar_estado(text, text)            from public,
 revoke all on function public.desconectando(text)                   from public, anon, authenticated;
 revoke all on function public.seguir(text, uuid, boolean)           from public, anon, authenticated;
 revoke all on function public.amistad(text, uuid, text)             from public, anon, authenticated;
+revoke all on function public.notificaciones_cantidad(text)         from public, anon, authenticated;
+revoke all on function public.notificaciones(text)                  from public, anon, authenticated;
+revoke all on function privado.estado_amistad(uuid, uuid)           from public, anon, authenticated;
 revoke all on function public.perfil_usuario(text, uuid)            from public, anon, authenticated;
 revoke all on function public.guardar_visibilidad(text, text[], boolean) from public, anon, authenticated;
 revoke all on function public.guardar_visibilidad_seguim(text, text[]) from public, anon, authenticated;
@@ -1700,6 +1838,8 @@ grant execute on function public.guardar_estado(text, text)         to anon, aut
 grant execute on function public.desconectando(text)                to anon, authenticated;
 grant execute on function public.seguir(text, uuid, boolean)        to anon, authenticated;
 grant execute on function public.amistad(text, uuid, text)          to anon, authenticated;
+grant execute on function public.notificaciones_cantidad(text)      to anon, authenticated;
+grant execute on function public.notificaciones(text)               to anon, authenticated;
 grant execute on function public.perfil_usuario(text, uuid)         to anon, authenticated;
 grant execute on function public.guardar_visibilidad(text, text[], boolean) to anon, authenticated;
 grant execute on function public.guardar_visibilidad_seguim(text, text[]) to anon, authenticated;
