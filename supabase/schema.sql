@@ -836,6 +836,8 @@ create table if not exists public.seguimientos (
   primary key (seguidor, seguido),
   check (seguidor <> seguido)
 );
+-- «aviso»: el nuevo seguidor aún no ha sido descartado en las notificaciones de «seguido» (los seguimientos que ya existían no avisan)
+alter table public.seguimientos add column if not exists aviso boolean not null default false;
 create index if not exists seguimientos_seguido_idx on public.seguimientos (seguido);
 alter table public.seguimientos enable row level security;
 revoke all on table public.seguimientos from public, anon, authenticated;
@@ -868,6 +870,38 @@ create table if not exists public.solicitudes_amistad (
 create index if not exists solicitudes_amistad_para_idx on public.solicitudes_amistad (para, creado desc);
 alter table public.solicitudes_amistad enable row level security;
 revoke all on table public.solicitudes_amistad from public, anon, authenticated;
+
+-- Registro de solicitudes enviadas, para frenar el reenvío insistente: tras 3 solicitudes del mismo tipo a la misma persona
+-- en 30 minutos, el siguiente intento queda bloqueado (fila con «bloqueo») durante 30 minutos desde ese intento.
+create table if not exists public.solicitudes_intentos (
+  de     uuid not null references public.usuarios(id) on delete cascade,
+  para   uuid not null references public.usuarios(id) on delete cascade,
+  tipo   text not null check (tipo in ('amigo', 'mejor')),
+  creado timestamptz not null default now()
+);
+alter table public.solicitudes_intentos add column if not exists bloqueo boolean not null default false;
+create index if not exists solicitudes_intentos_idx on public.solicitudes_intentos (de, para, tipo, creado desc);
+alter table public.solicitudes_intentos enable row level security;
+revoke all on table public.solicitudes_intentos from public, anon, authenticated;
+
+-- Segundos que faltan para que «de» pueda volver a enviarle a «para» una solicitud de ese tipo (0 = puede ya)
+create or replace function privado.espera_solicitud(p_de uuid, p_para uuid, p_tipo text)
+returns integer language sql stable security definer set search_path = '' as $$
+  select coalesce((
+    select greatest(0, ceil(extract(epoch from (max(creado) + interval '30 minutes' - now()))))::integer
+      from public.solicitudes_intentos
+     where de = p_de and para = p_para and tipo = p_tipo and bloqueo and creado > now() - interval '30 minutes'), 0)
+$$;
+
+-- ¿Ya envió 3 solicitudes de ese tipo en los últimos 30 minutos (desde el último bloqueo)?
+create or replace function privado.excede_solicitudes(p_de uuid, p_para uuid, p_tipo text)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select (select count(*) from public.solicitudes_intentos i
+           where i.de = p_de and i.para = p_para and i.tipo = p_tipo and not i.bloqueo
+             and i.creado > now() - interval '30 minutes'
+             and i.creado > coalesce((select max(b.creado) from public.solicitudes_intentos b
+                                       where b.de = p_de and b.para = p_para and b.tipo = p_tipo and b.bloqueo), '-infinity')) >= 3
+$$;
 
 -- Migración desde las amistades de un solo sentido (versión anterior, sin aceptación): cada amistad que no
 -- tiene su pareja pasa a ser una solicitud pendiente para la otra persona. Las ya recíprocas se quedan igual.
@@ -922,7 +956,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'no_existe');
   end if;
   if coalesce(p_seguir, true) then
-    insert into public.seguimientos (seguidor, seguido) values (v.id, p_id) on conflict do nothing;
+    insert into public.seguimientos (seguidor, seguido, aviso) values (v.id, p_id, true) on conflict do nothing;
   else
     delete from public.seguimientos where seguidor = v.id and seguido = p_id;
   end if;
@@ -940,6 +974,8 @@ returns jsonb language sql stable security definer set search_path = '' as $$
     'amigo_recibida',  exists (select 1 from public.solicitudes_amistad s where s.de = p_id and s.para = p_v and s.tipo = 'amigo'),
     'mejor_enviada',   exists (select 1 from public.solicitudes_amistad s where s.de = p_v and s.para = p_id and s.tipo = 'mejor'),
     'mejor_recibida',  exists (select 1 from public.solicitudes_amistad s where s.de = p_id and s.para = p_v and s.tipo = 'mejor'),
+    'amigo_espera', privado.espera_solicitud(p_v, p_id, 'amigo'),
+    'mejor_espera', privado.espera_solicitud(p_v, p_id, 'mejor'),
     'amigos', (select count(*) from public.amistades am join public.usuarios x on x.id = am.amigo where am.usuario = p_id and not x.suspendida))
 $$;
 
@@ -959,7 +995,9 @@ returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v public.usuarios;
   v_amigos boolean;
+  v_espera integer;
 begin
+  delete from public.solicitudes_intentos where creado < now() - interval '1 day';
   v := privado.usuario_de_token(p_token);
   if v.id is null then
     return jsonb_build_object('ok', false, 'error', 'sesion');
@@ -981,7 +1019,16 @@ begin
       if exists (select 1 from public.solicitudes_amistad where de = p_id and para = v.id and tipo = 'amigo') then
         p_accion := 'aceptar';                          -- las dos personas quieren: queda aceptada
       else
+        v_espera := privado.espera_solicitud(v.id, p_id, 'amigo');
+        if v_espera = 0 and privado.excede_solicitudes(v.id, p_id, 'amigo') then
+          insert into public.solicitudes_intentos (de, para, tipo, bloqueo) values (v.id, p_id, 'amigo', true);
+          v_espera := 1800;
+        end if;
+        if v_espera > 0 then
+          return jsonb_build_object('ok', false, 'error', 'demasiadas', 'espera', v_espera);
+        end if;
         insert into public.solicitudes_amistad (de, para, tipo) values (v.id, p_id, 'amigo') on conflict do nothing;
+        if found then insert into public.solicitudes_intentos (de, para, tipo) values (v.id, p_id, 'amigo'); end if;
       end if;
     end if;
   end if;
@@ -1006,7 +1053,16 @@ begin
     if exists (select 1 from public.solicitudes_amistad where de = p_id and para = v.id and tipo = 'mejor') then
       p_accion := 'aceptar_mejor';
     else
+      v_espera := privado.espera_solicitud(v.id, p_id, 'mejor');
+      if v_espera = 0 and privado.excede_solicitudes(v.id, p_id, 'mejor') then
+        insert into public.solicitudes_intentos (de, para, tipo, bloqueo) values (v.id, p_id, 'mejor', true);
+        v_espera := 1800;
+      end if;
+      if v_espera > 0 then
+        return jsonb_build_object('ok', false, 'error', 'demasiadas', 'espera', v_espera);
+      end if;
       insert into public.solicitudes_amistad (de, para, tipo) values (v.id, p_id, 'mejor') on conflict do nothing;
+      if found then insert into public.solicitudes_intentos (de, para, tipo) values (v.id, p_id, 'mejor'); end if;
     end if;
   end if;
 
@@ -1035,18 +1091,55 @@ end $$;
 -- Solo el número (ligero; se consulta a menudo) y la lista completa (al abrir el panel)
 create or replace function public.notificaciones_cantidad(p_token text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
-declare v public.usuarios;
+declare
+  v public.usuarios;
+  v_total integer;
+  v_firma text;
 begin
   v := privado.usuario_de_token(p_token);
   if v.id is null then
     return jsonb_build_object('ok', false, 'error', 'sesion');
   end if;
-  return jsonb_build_object('ok', true, 'total', (
-    select count(*) from public.solicitudes_amistad s join public.usuarios x on x.id = s.de
-     where s.para = v.id and not x.suspendida));
+  -- «firma»: cambia cuando llega, se resuelve o se descarta cualquier notificación (aunque el total se quede igual)
+  select count(*), md5(coalesce(string_agg(n.clave, ',' order by n.clave), ''))
+    into v_total, v_firma
+    from (select 'a' || s.de::text || s.tipo || s.creado::text as clave
+            from public.solicitudes_amistad s join public.usuarios x on x.id = s.de
+           where s.para = v.id and not x.suspendida
+          union all
+          select 's' || g.seguidor::text || g.creado::text
+            from public.seguimientos g join public.usuarios x on x.id = g.seguidor
+           where g.seguido = v.id and g.aviso and not x.suspendida) n;
+  return jsonb_build_object('ok', true, 'total', v_total, 'firma', v_firma);
 end $$;
 
+-- Lista completa: solicitudes de amistad / mejor amigo ('amigo', 'mejor') y nuevos seguidores ('seguidor')
 create or replace function public.notificaciones(p_token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v public.usuarios;
+  v_cant jsonb;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  v_cant := public.notificaciones_cantidad(p_token);
+  return jsonb_build_object('ok', true, 'total', v_cant -> 'total', 'firma', v_cant -> 'firma',
+    'items', coalesce((
+      select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
+                                          'tipo', n.tipo, 'creado', n.creado) order by n.creado desc, x.id)
+        from (select * from (
+                select s.de as quien, s.tipo, s.creado from public.solicitudes_amistad s where s.para = v.id
+                union all
+                select g.seguidor, 'seguidor', g.creado from public.seguimientos g where g.seguido = v.id and g.aviso) u
+               order by creado desc limit 30) n
+        join public.usuarios x on x.id = n.quien
+       where not x.suspendida), '[]'::jsonb));
+end $$;
+
+-- Descarta (marca como leída) la notificación de un nuevo seguidor
+create or replace function public.descartar_notificacion(p_token text, p_id uuid)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare v public.usuarios;
 begin
@@ -1054,14 +1147,8 @@ begin
   if v.id is null then
     return jsonb_build_object('ok', false, 'error', 'sesion');
   end if;
-  return jsonb_build_object('ok', true,
-    'total', (select count(*) from public.solicitudes_amistad s join public.usuarios x on x.id = s.de where s.para = v.id and not x.suspendida),
-    'items', coalesce((
-      select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
-                                          'tipo', s.tipo, 'creado', s.creado) order by s.creado desc, x.id)
-        from (select * from public.solicitudes_amistad where para = v.id order by creado desc limit 30) s
-        join public.usuarios x on x.id = s.de
-       where not x.suspendida), '[]'::jsonb));
+  update public.seguimientos set aviso = false where seguido = v.id and seguidor = p_id and aviso;
+  return jsonb_build_object('ok', true);
 end $$;
 
 -- ¿Puede quien mira (p_v) ver las listas de seguidores / seguidos / amigos de «p_u»? Solo usuarios con sesión; misma lógica que el estado.
@@ -1167,6 +1254,8 @@ begin
       'amigo_recibida', v_miembro and exists (select 1 from public.solicitudes_amistad x where x.de = u.id and x.para = v.id and x.tipo = 'amigo'),
       'mejor_enviada',  v_miembro and exists (select 1 from public.solicitudes_amistad x where x.de = v.id and x.para = u.id and x.tipo = 'mejor'),
       'mejor_recibida', v_miembro and exists (select 1 from public.solicitudes_amistad x where x.de = u.id and x.para = v.id and x.tipo = 'mejor'),
+      'amigo_espera', case when v_miembro then privado.espera_solicitud(v.id, u.id, 'amigo') else 0 end,
+      'mejor_espera', case when v_miembro then privado.espera_solicitud(v.id, u.id, 'mejor') else 0 end,
       'sigo', v_miembro and exists (select 1 from public.seguimientos s where s.seguidor = v.id and s.seguido = u.id),
       'estado', case when v_ver and privado.en_linea(u.visto, u.saliendo, u.estado_manual) then 'online' else 'offline' end));
 end $$;
@@ -1805,6 +1894,7 @@ revoke all on function public.seguir(text, uuid, boolean)           from public,
 revoke all on function public.amistad(text, uuid, text)             from public, anon, authenticated;
 revoke all on function public.notificaciones_cantidad(text)         from public, anon, authenticated;
 revoke all on function public.notificaciones(text)                  from public, anon, authenticated;
+revoke all on function public.descartar_notificacion(text, uuid)    from public, anon, authenticated;
 revoke all on function privado.estado_amistad(uuid, uuid)           from public, anon, authenticated;
 revoke all on function public.perfil_usuario(text, uuid)            from public, anon, authenticated;
 revoke all on function public.guardar_visibilidad(text, text[], boolean) from public, anon, authenticated;
@@ -1840,6 +1930,7 @@ grant execute on function public.seguir(text, uuid, boolean)        to anon, aut
 grant execute on function public.amistad(text, uuid, text)          to anon, authenticated;
 grant execute on function public.notificaciones_cantidad(text)      to anon, authenticated;
 grant execute on function public.notificaciones(text)               to anon, authenticated;
+grant execute on function public.descartar_notificacion(text, uuid) to anon, authenticated;
 grant execute on function public.perfil_usuario(text, uuid)         to anon, authenticated;
 grant execute on function public.guardar_visibilidad(text, text[], boolean) to anon, authenticated;
 grant execute on function public.guardar_visibilidad_seguim(text, text[]) to anon, authenticated;

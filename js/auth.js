@@ -434,8 +434,8 @@
     var s = leerSesion();
     if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
     return rpc("amistad", { p_token: s.token, p_id: id, p_accion: accion }).then(function (r) {
-      if (!r.ok) return { ok: false, error: r.error || "error" };
-      return { ok: true, amigo: !!r.amigo, mejor: !!r.mejor, amigos: Number(r.amigos) || 0,
+      if (!r.ok) return { ok: false, error: r.error || "error", espera: Number(r.espera) || 0 };
+      return { ok: true, amigo_espera: Number(r.amigo_espera) || 0, mejor_espera: Number(r.mejor_espera) || 0, amigo: !!r.amigo, mejor: !!r.mejor, amigos: Number(r.amigos) || 0,
         amigo_enviada: !!r.amigo_enviada, amigo_recibida: !!r.amigo_recibida, mejor_enviada: !!r.mejor_enviada, mejor_recibida: !!r.mejor_recibida };
     });
   }
@@ -444,14 +444,19 @@
     var s = leerSesion();
     if (!s) return Promise.resolve({ ok: false });
     return rpc("notificaciones_cantidad", { p_token: s.token }).then(function (r) {
-      return r.ok ? { ok: true, total: Number(r.total) || 0 } : { ok: false };
+      return r.ok ? { ok: true, total: Number(r.total) || 0, firma: String(r.firma || "") } : { ok: false };
     });
+  }
+  function descartarNotificacion(id) {
+    var s = leerSesion();
+    if (!s) return Promise.resolve({ ok: false });
+    return rpc("descartar_notificacion", { p_token: s.token, p_id: id }).then(function (r) { return { ok: !!r.ok }; });
   }
   function notificaciones() {
     var s = leerSesion();
     if (!s) return Promise.resolve({ ok: false });
     return rpc("notificaciones", { p_token: s.token }).then(function (r) {
-      return r.ok ? { ok: true, total: Number(r.total) || 0, items: Array.isArray(r.items) ? r.items : [] } : { ok: false };
+      return r.ok ? { ok: true, total: Number(r.total) || 0, firma: String(r.firma || ""), items: Array.isArray(r.items) ? r.items : [] } : { ok: false };
     });
   }
   // Iconos con el estilo de Windows 11 (Fluent): contorno redondeado y de trazo fino
@@ -533,6 +538,8 @@
     amistad: amistad,
     notificacionesCantidad: notificacionesCantidad,
     notificaciones: notificaciones,
+    descartarNotificacion: descartarNotificacion,
+    toast: toast,
     refrescarNotificaciones: function () { refrescarNotif(); },
     iconos: ICONOS,
     dosPersonasOro: DOS_PERSONAS_ORO,
@@ -874,9 +881,51 @@
   var ICONO_AJUSTES = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
   var ICONO_SALIR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>';
 
-  // ---------- Notificaciones (botón de la barra, encima de la foto de perfil) ----------
-  // Por ahora avisan de las solicitudes de amistad y de mejor amigo; desde aquí se pueden aceptar o rechazar.
+  // Sub-notificación: tarjeta pequeña arriba a la derecha que entra desde fuera de la página y se va sola
   var RE_AVATAR = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/;
+  function toast(o) {
+    var caja = document.getElementById("subnotif-caja");
+    if (!caja) {
+      caja = document.createElement("div"); caja.id = "subnotif-caja"; caja.className = "subnotif-caja";
+      caja.setAttribute("role", "region"); caja.setAttribute("aria-label", "Notificaciones emergentes"); caja.setAttribute("aria-live", "polite");
+      document.body.appendChild(caja);
+    }
+    while (caja.children.length >= 4) caja.firstChild.remove();
+    var cuerpo = document.createElement("div"); cuerpo.className = "subnotif-cuerpo";
+    var tit = document.createElement("div"); tit.className = "subnotif-tit";
+    if (o.nombre) { var b = document.createElement("strong"); b.textContent = o.nombre; tit.appendChild(b); tit.appendChild(document.createTextNode(" ")); }
+    tit.appendChild(document.createTextNode(o.texto));
+    cuerpo.appendChild(tit);
+    var n = document.createElement(o.href ? "a" : "div"); n.className = "subnotif" + (o.tipo ? " " + o.tipo : "");
+    if (o.href) n.href = o.href;
+    var ic = document.createElement("span"); ic.className = "subnotif-ico"; ic.setAttribute("aria-hidden", "true");
+    if (o.usuario || o.nombre) {
+      var av = document.createElement("span");
+      rellenarAvatar(av, { usuario: o.usuario || o.nombre, avatar: typeof o.avatar === "string" && RE_AVATAR.test(o.avatar) ? o.avatar : null }, false);
+      ic.appendChild(av);
+    } else if (o.icono) ic.innerHTML = o.icono;
+    n.appendChild(ic); n.appendChild(cuerpo);
+    var x = document.createElement("button"); x.type = "button"; x.className = "subnotif-x"; x.setAttribute("aria-label", "Cerrar"); x.innerHTML = ICONOS.cerrar;
+    var f = document.createElement("div"); f.className = "subnotif-fila"; f.appendChild(n); f.appendChild(x);
+    caja.appendChild(f);
+    var t = 0, cerrado = false;
+    function quitar() {
+      if (cerrado) return; cerrado = true; clearTimeout(t);
+      f.classList.add("sale");
+      setTimeout(function () { f.remove(); }, 380);
+    }
+    function programar() { clearTimeout(t); t = setTimeout(quitar, o.ms || 6500); }
+    x.addEventListener("click", quitar);
+    f.addEventListener("pointerenter", function () { clearTimeout(t); });
+    f.addEventListener("pointerleave", programar);
+    programar();
+    return { cerrar: quitar };
+  }
+
+  // ---------- Notificaciones (botón de la barra, encima de la foto de perfil) ----------
+  // Avisan de solicitudes de amistad / de mejor amigo (se aceptan o rechazan desde el panel) y de nuevos seguidores.
+  // Se consultan cada 5 s con una «firma» ligera; si cambia, se baja la lista: el panel abierto se actualiza solo y
+  // lo nuevo aparece como sub-notificación arriba a la derecha.
   var refrescarNotif = function () { /* hasta que se crea el botón */ };
   function iniciarNotificaciones(cuentaBtn) {
     var tr = function (x) { return window.I18n && window.I18n.t ? window.I18n.t(x) : x; };
@@ -890,25 +939,49 @@
     btn.appendChild(el("span", { class: "label" }, "Notificaciones"));
     cuentaBtn.parentNode.insertBefore(btn, cuentaBtn);
 
-    var total = -1, panel = null, lista = null;
-    function poner(n) {
-      var antes = total; total = Math.max(0, n);
+    var total = 0, firma = null, panel = null, lista = null, vistos = null, cargando = false;
+    var clave = function (it) { return it.tipo + ":" + it.id + ":" + it.creado; };
+    function ponerTotal(n) {
+      total = Math.max(0, n);
       badge.textContent = total > 9 ? "9+" : String(total);
       badge.hidden = total === 0;
       var t = tr("Notificaciones") + (total ? " (" + total + ")" : "");
       btn.setAttribute("aria-label", t); btn.setAttribute("data-tooltip", t);
-      if (antes !== -1 && antes !== total) {
-        try { window.dispatchEvent(new Event("notif-cambio")); } catch (e) { /* nada */ }
-      }
+    }
+    function textoDe(it) {
+      return it.tipo === "mejor" ? "quiere ser tu mejor amigo" : it.tipo === "seguidor" ? "empezó a seguirte" : "te envió una solicitud de amistad";
+    }
+    // Baja la lista: pinta el panel si está abierto y muestra como sub-notificación lo que no se había visto
+    function sincronizar() {
+      if (cargando) return Promise.resolve();
+      cargando = true;
+      return notificaciones().then(function (r) {
+        cargando = false;
+        if (!r.ok) return;
+        var primera = vistos === null;
+        if (primera) vistos = {};
+        var nuevas = r.items.filter(function (it) { return !vistos[clave(it)]; });
+        r.items.forEach(function (it) { vistos[clave(it)] = true; });
+        firma = r.firma; ponerTotal(r.total);
+        if (!primera) {
+          nuevas.slice(0, 3).forEach(function (it) {
+            toast({ nombre: it.nombre, usuario: it.usuario, avatar: it.avatar, texto: tr(textoDe(it)), href: "perfil.html?id=" + encodeURIComponent(it.id), tipo: it.tipo });
+          });
+          try { window.dispatchEvent(new Event("notif-cambio")); } catch (e) { /* nada */ }
+        }
+        if (panel) pintarLista(r.items);
+      }, function () { cargando = false; });
     }
     function contar() {
       if (document.hidden) return;
-      notificacionesCantidad().then(function (r) { if (r.ok) poner(r.total); });
+      notificacionesCantidad().then(function (r) {
+        if (!r.ok) return;
+        if (vistos === null || r.firma !== firma) sincronizar(); else ponerTotal(r.total);
+      });
     }
-    poner(0); total = -1;
+    refrescarNotif = contar;
     contar();
-    refrescarNotif = function () { notificacionesCantidad().then(function (r) { if (r.ok) poner(r.total); }); };
-    setInterval(contar, 10000);
+    setInterval(contar, 5000);
     document.addEventListener("visibilitychange", function () { if (!document.hidden) contar(); });
 
     function cerrar(devolverFoco) {
@@ -923,34 +996,60 @@
     function teclas(e) { if (e.key === "Escape") { e.preventDefault(); cerrar(true); } }
     function vacio(texto) { lista.textContent = ""; lista.appendChild(el("p", { class: "notif-vacio" }, texto)); }
     function fila(it) {
-      var mejor = it.tipo === "mejor";
+      var tipo = it.tipo;
       var av = el("a", { class: "notif-av", href: "perfil.html?id=" + encodeURIComponent(it.id), "aria-hidden": "true", tabindex: "-1" });
       var a = el("span", {});
       rellenarAvatar(a, { usuario: it.usuario || it.nombre, avatar: typeof it.avatar === "string" && RE_AVATAR.test(it.avatar) ? it.avatar : null }, false);
       av.appendChild(a);
       var nombre = el("a", { class: "notif-nombre", href: "perfil.html?id=" + encodeURIComponent(it.id) }, String(it.nombre));
-      var txt = el("span", { class: "notif-txt" }, mejor ? "quiere ser tu mejor amigo" : "te envió una solicitud de amistad");
-      var ok = el("button", { type: "button", class: "btn notif-acepta" }, mejor ? "Aceptar mejor amigo" : "Aceptar amigo");
-      var no = el("button", { type: "button", class: "btn secondary notif-rechaza" }, "Rechazar");
+      var txt = el("span", { class: "notif-txt" }, textoDe(it));
+      var botones = el("div", { class: "notif-botones" });
       var msg = el("p", { class: "f-error notif-msg", role: "alert" });
-      var f = el("div", { class: "notif-fila" }, av,
-        el("div", { class: "notif-cuerpo" }, el("div", { class: "notif-linea" }, nombre, document.createTextNode(" "), txt),
-          el("div", { class: "notif-botones" }, ok, no), msg));
-      function resolver(accion) {
+      var f = el("div", { class: "notif-fila", "data-clave": clave(it) }, av,
+        el("div", { class: "notif-cuerpo" }, el("div", { class: "notif-linea" }, nombre, document.createTextNode(" "), txt), botones, msg));
+      var ok = el("button", { type: "button", class: "btn notif-acepta" }, tipo === "mejor" ? "Aceptar mejor amigo" : tipo === "seguidor" ? "Ver perfil" : "Aceptar amigo");
+      var no = el("button", { type: "button", class: "btn secondary notif-rechaza" }, tipo === "seguidor" ? "Descartar" : "Rechazar");
+      botones.appendChild(ok); botones.appendChild(no);
+      function listo() {
+        f.classList.add("sale");
+        setTimeout(function () { f.remove(); if (lista && !lista.querySelector(".notif-fila")) vacio(tr("No tienes notificaciones.")); }, 260);
+        ponerTotal(total - 1); contar();
+      }
+      function resolver(tarea) {
         ok.disabled = no.disabled = true; msg.textContent = "";
-        amistad(it.id, accion).then(function (r) {
+        tarea().then(function (r) {
           if (!r.ok) { ok.disabled = no.disabled = false; msg.textContent = tr("No se pudo actualizar la amistad."); return; }
-          f.classList.add("sale");
-          setTimeout(function () {
-            f.remove();
-            if (lista && !lista.querySelector(".notif-fila")) vacio(tr("No tienes notificaciones."));
-          }, 260);
-          poner(total - 1); contar();
+          listo();
         });
       }
-      ok.addEventListener("click", function () { resolver(mejor ? "aceptar_mejor" : "aceptar"); });
-      no.addEventListener("click", function () { resolver(mejor ? "rechazar_mejor" : "rechazar"); });
+      if (tipo === "seguidor") {
+        ok.addEventListener("click", function () { descartarNotificacion(it.id).then(function () { location.href = "perfil.html?id=" + encodeURIComponent(it.id); }); });
+        no.addEventListener("click", function () { resolver(function () { return descartarNotificacion(it.id); }); });
+      } else {
+        ok.addEventListener("click", function () { resolver(function () { return amistad(it.id, tipo === "mejor" ? "aceptar_mejor" : "aceptar"); }); });
+        no.addEventListener("click", function () { resolver(function () { return amistad(it.id, tipo === "mejor" ? "rechazar_mejor" : "rechazar"); }); });
+      }
       return f;
+    }
+    // Pinta la lista sin tocar las filas que ya están (así no se pierde lo que el usuario esté haciendo)
+    function pintarLista(items) {
+      if (!lista) return;
+      if (!items.length) { vacio(tr("No tienes notificaciones.")); return; }
+      var existentes = {};
+      Array.prototype.forEach.call(lista.querySelectorAll(".notif-fila"), function (f) { existentes[f.getAttribute("data-clave")] = f; });
+      var claves = {};
+      items.forEach(function (it) { claves[clave(it)] = true; });
+      var hay = false;
+      if (!lista.querySelector(".notif-fila")) lista.textContent = "";
+      Object.keys(existentes).forEach(function (k) { if (!claves[k]) existentes[k].remove(); });
+      items.forEach(function (it, i) {
+        var f = existentes[clave(it)];
+        if (!f || !f.parentNode) { f = fila(it); f.classList.add("entra"); }
+        var ref = lista.children[i];
+        if (ref !== f) lista.insertBefore(f, ref || null);
+        hay = true;
+      });
+      if (!hay) vacio(tr("No tienes notificaciones."));
     }
     function abrir() {
       document.dispatchEvent(new CustomEvent("barra-menu", { detail: "notif" }));
@@ -969,10 +1068,9 @@
       notificaciones().then(function (r) {
         if (panel !== mio) return;
         if (!r.ok) { vacio(tr("No se pudieron cargar las notificaciones.")); return; }
-        poner(r.total);
-        if (!r.items.length) { vacio(tr("No tienes notificaciones.")); return; }
-        lista.textContent = "";
-        r.items.forEach(function (it) { lista.appendChild(fila(it)); });
+        r.items.forEach(function (it) { if (vistos) vistos[clave(it)] = true; });
+        firma = r.firma; ponerTotal(r.total);
+        pintarLista(r.items);
       });
     }
     btn.addEventListener("click", function () { if (panel) cerrar(false); else abrir(); });

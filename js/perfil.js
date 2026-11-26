@@ -41,7 +41,8 @@
     // Pone icono y texto a un botón (el texto va en su propio <span> para poder traducirlo)
     function boton(btn, icono, texto, secundario, accion) {
       btn.querySelector(".btn-ico").innerHTML = icono || "";
-      btn.querySelector(".btn-txt").textContent = t(texto);
+      btn.querySelector(".btn-txt").textContent = t(texto);   // texto solo para lectores de pantalla
+      btn.setAttribute("data-tooltip", t(texto));              // y como tooltip al pasar el cursor o enfocar
       btn.classList.toggle("secondary", !!secundario);
       if (accion) btn.dataset.accion = accion;
     }
@@ -58,7 +59,9 @@
     if (p.amigo) boton(ba, ic.personaMenos, "Quitar amigo", true, "quitar");
     else if (p.amigo_recibida) boton(ba, ic.personaCheck, "Aceptar amigo", false, "aceptar");
     else if (p.amigo_enviada) boton(ba, ic.reloj, "Cancelar solicitud", true, "cancelar");
+    else if (p.amigo_espera > 0) boton(ba, ic.reloj, "Espera " + Math.ceil(p.amigo_espera / 60) + " min para volver a enviar", true, "agregar");
     else boton(ba, ic.personaMas, "Agregar amigo", false, "agregar");
+    ba.disabled = !p.amigo && !p.amigo_recibida && !p.amigo_enviada && p.amigo_espera > 0;
     boton(br, ic.cerrar, "Rechazar", true, "rechazar");
     // Mejor amigo: el botón solo aparece si ya son amigos
     bm.hidden = !(m && p.amigo);
@@ -68,7 +71,9 @@
     if (p.mejor) boton(bm, oro, "Quitar de mejores amigos", true, "no_mejor");
     else if (p.mejor_recibida) boton(bm, oro, "Aceptar mejor amigo", false, "aceptar_mejor");
     else if (p.mejor_enviada) boton(bm, ic.reloj, "Cancelar solicitud de mejor amigo", true, "cancelar_mejor");
+    else if (p.mejor_espera > 0) boton(bm, ic.reloj, "Espera " + Math.ceil(p.mejor_espera / 60) + " min para volver a enviar", true, "mejor");
     else boton(bm, oro, "Mejor amigo", true, "mejor");
+    bm.disabled = !p.mejor && !p.mejor_recibida && !p.mejor_enviada && p.mejor_espera > 0;
     boton(bmr, ic.cerrar, "Rechazar", true, "rechazar_mejor");
   }
   function pintar(r) {
@@ -91,6 +96,7 @@
       extra.hidden = false;
     } else extra.hidden = true;
     $("perfil-editar").hidden = !p.yo;
+    $("perfil-editar").setAttribute("data-tooltip", t("Editar mi perfil"));
     pintarSeguim(p);
     mostrarMsg("");
   }
@@ -155,6 +161,11 @@
       ocupado = true; btn.disabled = true;
       A.amistad(idPerfil, acc).then(function (r) {
         ocupado = false; btn.disabled = false;
+        if (!r.ok && r.error === "demasiadas") {
+          // Insistió demasiado tras rechazos: sub-notificación y botón desactivado (espera de 30 min)
+          A.toast({ icono: A.iconos.reloj, tipo: "aviso", ms: 8000, texto: t("Has enviado demasiadas solicitudes en poco tiempo. Podrás volver a intentarlo en") + " " + Math.max(1, Math.ceil((r.espera || 1800) / 60)) + " min." });
+          mostrarMsg(""); cargar(); return;
+        }
         if (!r.ok) { mostrarMsg(t("No se pudo actualizar la amistad.")); return; }
         mostrarMsg(""); cargar();
         if (A.refrescarNotificaciones) A.refrescarNotificaciones();   // el contador de la barra se actualiza al momento
