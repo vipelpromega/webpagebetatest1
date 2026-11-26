@@ -475,6 +475,15 @@
   };
   // «Mejor amigo»: dos personas doradas (relleno, como los iconos «llenos» de Windows 11)
   var DOS_PERSONAS_ORO = '<svg viewBox="0 0 24 24" aria-hidden="true"><g class="atras"><circle cx="17.2" cy="8.8" r="2.7"/><path d="M16.8 14.3c2.7.1 4.7 1.9 4.7 4.4 0 1-.7 1.8-1.7 1.8h-2.6c.3-.5.4-1 .4-1.6 0-1.8-.8-3.4-2.1-4.4.4-.1.8-.2 1.3-.2z"/></g><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19.1c0-2.7 2.2-4.8 4.9-4.8h3.2c2.7 0 4.9 2.1 4.9 4.8 0 .8-.6 1.4-1.4 1.4H3.9c-.8 0-1.4-.6-1.4-1.4z"/></svg>';
+  // Administradores de la página: sello de verificado (círculo con dientes y una palomita), visible para todos
+  var SELLO_ADMIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="sello" d="M12.00 1.40 L15.41 3.78 L19.50 4.50 L20.22 8.59 L22.60 12.00 L20.22 15.41 L19.50 19.50 L15.41 20.22 L12.00 22.60 L8.59 20.22 L4.50 19.50 L3.78 15.41 L1.40 12.00 L3.78 8.59 L4.50 4.50 L8.59 3.78Z"/><path class="palomita" d="M8 12.4l2.7 2.7L16.2 9.4"/></svg>';
+  function iconoAdmin() {
+    var e = document.createElement("span");
+    e.className = "admin-ico"; e.setAttribute("role", "img");
+    var tt = window.I18n && window.I18n.t ? window.I18n.t("Administrador de la página") : "Administrador de la página";
+    e.setAttribute("aria-label", tt); e.title = tt; e.innerHTML = SELLO_ADMIN;
+    return e;
+  }
   function iconoMejor() {
     var e = document.createElement("span");
     e.className = "mejor-ico"; e.setAttribute("role", "img");
@@ -544,6 +553,7 @@
     iconos: ICONOS,
     dosPersonasOro: DOS_PERSONAS_ORO,
     iconoMejor: iconoMejor,
+    iconoAdmin: iconoAdmin,
     listaUsuarios: listaUsuarios,
     estadosUsuarios: estadosUsuarios,
     miVisibilidad: miVisibilidad,
@@ -893,7 +903,11 @@
     while (caja.children.length >= 4) caja.firstChild.remove();
     var cuerpo = document.createElement("div"); cuerpo.className = "subnotif-cuerpo";
     var tit = document.createElement("div"); tit.className = "subnotif-tit";
-    if (o.nombre) { var b = document.createElement("strong"); b.textContent = o.nombre; tit.appendChild(b); tit.appendChild(document.createTextNode(" ")); }
+    if (o.nombre) {
+      var b = document.createElement("strong"); b.textContent = o.nombre; tit.appendChild(b);
+      if (o.admin) tit.appendChild(iconoAdmin());
+      tit.appendChild(document.createTextNode(" "));
+    }
     tit.appendChild(document.createTextNode(o.texto));
     cuerpo.appendChild(tit);
     var n = document.createElement(o.href ? "a" : "div"); n.className = "subnotif" + (o.tipo ? " " + o.tipo : "");
@@ -905,20 +919,16 @@
       ic.appendChild(av);
     } else if (o.icono) ic.innerHTML = o.icono;
     n.appendChild(ic); n.appendChild(cuerpo);
-    var x = document.createElement("button"); x.type = "button"; x.className = "subnotif-x"; x.setAttribute("aria-label", "Cerrar"); x.innerHTML = ICONOS.cerrar;
-    var f = document.createElement("div"); f.className = "subnotif-fila"; f.appendChild(n); f.appendChild(x);
+    var f = document.createElement("div"); f.className = "subnotif-fila"; f.appendChild(n);
     caja.appendChild(f);
-    var t = 0, cerrado = false;
+    // Se va sola a los ~3 s (sale deslizándose hacia la derecha)
+    var cerrado = false;
     function quitar() {
-      if (cerrado) return; cerrado = true; clearTimeout(t);
+      if (cerrado) return; cerrado = true;
       f.classList.add("sale");
       setTimeout(function () { f.remove(); }, 380);
     }
-    function programar() { clearTimeout(t); t = setTimeout(quitar, o.ms || 6500); }
-    x.addEventListener("click", quitar);
-    f.addEventListener("pointerenter", function () { clearTimeout(t); });
-    f.addEventListener("pointerleave", programar);
-    programar();
+    setTimeout(quitar, o.ms || 3000);
     return { cerrar: quitar };
   }
 
@@ -965,7 +975,7 @@
         firma = r.firma; ponerTotal(r.total);
         if (!primera) {
           nuevas.slice(0, 3).forEach(function (it) {
-            toast({ nombre: it.nombre, usuario: it.usuario, avatar: it.avatar, texto: tr(textoDe(it)), href: "perfil.html?id=" + encodeURIComponent(it.id), tipo: it.tipo });
+            toast({ nombre: it.nombre, admin: it.admin, usuario: it.usuario, avatar: it.avatar, texto: tr(textoDe(it)), href: "perfil.html?id=" + encodeURIComponent(it.id), tipo: it.tipo });
           });
           try { window.dispatchEvent(new Event("notif-cambio")); } catch (e) { /* nada */ }
         }
@@ -1002,11 +1012,12 @@
       rellenarAvatar(a, { usuario: it.usuario || it.nombre, avatar: typeof it.avatar === "string" && RE_AVATAR.test(it.avatar) ? it.avatar : null }, false);
       av.appendChild(a);
       var nombre = el("a", { class: "notif-nombre", href: "perfil.html?id=" + encodeURIComponent(it.id) }, String(it.nombre));
+      var insig = it.admin ? iconoAdmin() : document.createTextNode("");
       var txt = el("span", { class: "notif-txt" }, textoDe(it));
       var botones = el("div", { class: "notif-botones" });
       var msg = el("p", { class: "f-error notif-msg", role: "alert" });
       var f = el("div", { class: "notif-fila", "data-clave": clave(it) }, av,
-        el("div", { class: "notif-cuerpo" }, el("div", { class: "notif-linea" }, nombre, document.createTextNode(" "), txt), botones, msg));
+        el("div", { class: "notif-cuerpo" }, el("div", { class: "notif-linea" }, nombre, insig, document.createTextNode(" "), txt), botones, msg));
       var ok = el("button", { type: "button", class: "btn notif-acepta" }, tipo === "mejor" ? "Aceptar mejor amigo" : tipo === "seguidor" ? "Ver perfil" : "Aceptar amigo");
       var no = el("button", { type: "button", class: "btn secondary notif-rechaza" }, tipo === "seguidor" ? "Descartar" : "Rechazar");
       botones.appendChild(ok); botones.appendChild(no);

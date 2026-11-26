@@ -52,3 +52,18 @@ html[data-fondo="imagen"] body, [data-fondo-vista="imagen"] {
 .fondo-acciones { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .fondo-acciones .nota { margin: 0; }
 .fondo-cuerpo .f-error:empty { display: none; }
+
+/* Miniaturas de modo: cada una muestra su propio modo (no el actual) */
+.modo-vista .papel { filter: none; }
+.modo-vista[data-modo-vista="light"] .papel { background: linear-gradient(135deg, #dfe9f6, #f5f5f5 60%, #e9e2f4); }
+.modo-vista[data-modo-vista="dark"] .papel { background: linear-gradient(135deg, #1b2a3a, #202020 60%, #2a2233); }
+.modo-vista[data-modo-vista="oled"] .papel { background: #000; }
+.modo-vista[data-modo-vista="auto"] .papel { background: linear-gradient(135deg, #dfe9f6 50%, #1b2a3a 50%); }
+.modo-vista[data-modo-vista="light"] .mini-ventana { background: #fbfbfb; border-color: rgba(0, 0, 0, .14); }
+.modo-vista[data-modo-vista="light"] .mini-ventana::before { background: #eaeaea; }
+.modo-vista[data-modo-vista="dark"] .mini-ventana { background: #2c2c2c; border-color: rgba(255, 255, 255, .14); }
+.modo-vista[data-modo-vista="dark"] .mini-ventana::before { background: #383838; }
+.modo-vista[data-modo-vista="oled"] .mini-ventana { background: #0c0c0c; border-color: rgba(255, 255, 255, .16); }
+.modo-vista[data-modo-vista="oled"] .mini-ventana::before { background: #1a1a1a; }
+.modo-vista[data-modo-vista="auto"] .mini-ventana { background: linear-gradient(90deg, #fbfbfb 50%, #2c2c2c 50%); border-color: rgba(128, 128, 128, .35); }
+.modo-vista[data-modo-vista="auto"] .mini-ventana::before { background: linear-gradient(90deg, #eaeaea 50%, #383838 50%); }

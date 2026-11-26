@@ -10,9 +10,26 @@
   });
 
   // ---------- Tema ----------
-  const temaSel = document.getElementById("tema-select");
-  const refresh = () => { temaSel.value = window.Theme.get(); };
-  temaSel.addEventListener("change", () => { window.Theme.set(temaSel.value); refresh(); });
+  // Miniaturas de modo al estilo de las de «Temas» de Windows 11 (igual que las de Fondo de la página)
+  const modosCaja = document.getElementById("modos");
+  const MODOS = [["auto", "Sistema"], ["light", "Claro"], ["dark", "Oscuro"], ["oled", "OLED"]];
+  const opsModo = {};
+  MODOS.forEach(([id, etiqueta]) => {
+    const op = document.createElement("button"); op.type = "button"; op.className = "fondo-op modo-op"; op.setAttribute("role", "radio");
+    const v = document.createElement("span"); v.className = "fondo-vista modo-vista"; v.setAttribute("data-modo-vista", id);
+    const papel = document.createElement("span"); papel.className = "papel"; papel.setAttribute("aria-hidden", "true");
+    const ven = document.createElement("span"); ven.className = "mini-ventana"; ven.setAttribute("aria-hidden", "true");
+    const barra = document.createElement("span"); barra.className = "mini-barra";
+    ven.appendChild(barra); v.append(papel, ven);
+    const t = document.createElement("span"); t.className = "fondo-nombre"; t.textContent = etiqueta;
+    op.append(v, t);
+    op.addEventListener("click", () => { window.Theme.set(id); refresh(); });
+    modosCaja.appendChild(op); opsModo[id] = op;
+  });
+  const refresh = () => {
+    const actual = window.Theme.get();
+    Object.keys(opsModo).forEach((id) => { opsModo[id].classList.toggle("selected", id === actual); opsModo[id].setAttribute("aria-checked", String(id === actual)); });
+  };
   refresh();
 
   // ---------- Difuminado de las tarjetas ----------
@@ -120,9 +137,7 @@
     opImg.hidden = !Fondo.hayImagen();
     // La miniatura de «Mi imagen» usa la foto guardada aunque ahora esté elegido otro fondo
     try { const im = localStorage.getItem("fondo-img"); if (im && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(im)) opImg.querySelector(".papel").style.setProperty("--fondo-img", 'url("' + im + '")'); } catch (e) { /* nada */ }
-    document.getElementById("fondo-reset").disabled = a === "ninguno" && !Fondo.hayImagen();
   }
-  document.getElementById("fondo-reset").addEventListener("click", () => { fondoMsg.textContent = ""; Fondo.restablecer(); pintarFondo(); });
   const fondoArchivo = document.getElementById("fondo-archivo");
   document.getElementById("fondo-subir").addEventListener("click", () => fondoArchivo.click());
   // Reduce la imagen para que quepa en el navegador (máx. 1600 px, JPEG)

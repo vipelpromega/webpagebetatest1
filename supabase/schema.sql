@@ -842,6 +842,9 @@ create index if not exists seguimientos_seguido_idx on public.seguimientos (segu
 alter table public.seguimientos enable row level security;
 revoke all on table public.seguimientos from public, anon, authenticated;
 
+-- Administradores de la página principal: lo asigna el panel de administración y todos ven su insignia junto al nombre
+alter table public.usuarios add column if not exists es_admin_web boolean not null default false;
+
 -- Amistades: son de dos sentidos. Cuando alguien acepta una solicitud se guardan las dos filas
 -- (usuario→amigo y amigo→usuario), así «los amigos de X» sigue siendo «las filas donde usuario = X».
 -- «mejor»: ambos son mejores amigos (también de dos sentidos; se activa en las dos filas al aceptar).
@@ -1128,7 +1131,7 @@ begin
   return jsonb_build_object('ok', true, 'total', v_cant -> 'total', 'firma', v_cant -> 'firma',
     'items', coalesce((
       select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
-                                          'tipo', n.tipo, 'creado', n.creado) order by n.creado desc, x.id)
+                                          'tipo', n.tipo, 'creado', n.creado, 'admin', x.es_admin_web) order by n.creado desc, x.id)
         from (select * from (
                 select s.de as quien, s.tipo, s.creado from public.solicitudes_amistad s where s.para = v.id
                 union all
@@ -1187,14 +1190,14 @@ begin
   if p_tipo = 'amigos' then
     return jsonb_build_object('ok', true, 'tipo', p_tipo, 'usuarios', coalesce((
       select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
-                       'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
+                       'admin', x.es_admin_web, 'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
                        order by a.creado desc, x.id)
         from public.amistades a join public.usuarios x on x.id = a.amigo
        where a.usuario = u.id and not x.suspendida), '[]'::jsonb));
   end if;
   return jsonb_build_object('ok', true, 'tipo', p_tipo, 'usuarios', coalesce((
     select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
-                     'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
+                     'admin', x.es_admin_web, 'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
                      order by s.creado desc, x.id)
       from public.seguimientos s
       join public.usuarios x on x.id = case when p_tipo = 'seguidores' then s.seguidor else s.seguido end
@@ -1247,6 +1250,7 @@ begin
       'seguidores', (select count(*) from public.seguimientos s join public.usuarios x on x.id = s.seguidor where s.seguido = u.id and not x.suspendida),
       'siguiendo',  (select count(*) from public.seguimientos s join public.usuarios x on x.id = s.seguido where s.seguidor = u.id and not x.suspendida),
       'amigos', (select count(*) from public.amistades a join public.usuarios x on x.id = a.amigo where a.usuario = u.id and not x.suspendida),
+      'admin', u.es_admin_web,
       'ver_seguim', privado.ve_seguim(u.id, u.visibilidades_seguim, v.id),
       'amigo', v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id),
       'mejor', v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id and a.mejor),
@@ -1286,6 +1290,7 @@ begin
                  then 'online' else 'offline'
              end as estado,
              (v_miembro and u.id = v.id) as yo,
+             u.es_admin_web as admin,
              (v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id and a.mejor)) as mejor
         from public.usuarios u
        where not u.suspendida
@@ -1452,7 +1457,8 @@ begin
     select jsonb_agg(x order by x.creado desc) from (
       select c.id, c.etiqueta, c.vista,
              case when c.usado_en is not null then 'usada' else 'sin_usar' end as estado,
-             c.creado, c.usado_en, c.creado_por_email, coalesce(u.suspendida, false) as suspendida
+             c.creado, c.usado_en, c.creado_por_email, coalesce(u.suspendida, false) as suspendida,
+             coalesce(u.es_admin_web, false) as admin_web
         from public.codigos c
         left join public.usuarios u on u.id = c.usado_por
        order by c.creado desc
@@ -1530,7 +1536,7 @@ begin
     'estado', case when v.usado_en is not null then 'usada' else 'sin_usar' end,
     'creado', v.creado, 'usado_en', v.usado_en, 'creado_por_email', v.creado_por_email,
     'cuenta', case when u.id is null then null
-                   else jsonb_build_object('usuario', u.usuario, 'nombre', u.nombre, 'avatar', u.avatar, 'suspendida', u.suspendida, 'suspendida_en', u.suspendida_en,
+                   else jsonb_build_object('usuario', u.usuario, 'nombre', u.nombre, 'avatar', u.avatar, 'suspendida', u.suspendida, 'suspendida_en', u.suspendida_en, 'admin_web', u.es_admin_web,
       'pais_registro', (select h.pais from public.historial h where h.usuario_id = u.id and h.evento = 'registro' order by h.fecha limit 1),
       'paises', coalesce((select jsonb_agg(x.p order by x.n desc, x.p) from (
           select coalesce(upper(h.pais), '??') as p, count(*) as n from public.historial h
@@ -1608,6 +1614,33 @@ begin
   perform privado.auditar(v_admin, case when p_suspender then 'suspender_cuenta' else 'reactivar_cuenta' end,
     jsonb_build_object('usuario', v_user, 'sesiones_cerradas', v_n));
   return jsonb_build_object('ok', true, 'suspendida', coalesce(p_suspender, false));
+end $$;
+
+-- Hacer o quitar administrador de la página principal a la cuenta de una clave (exige la contraseña maestra).
+-- Los administradores llevan una insignia de verificado junto al nombre, visible para todos.
+create or replace function public.admin_asignar_admin_web(p_id uuid, p_valor boolean, p_maestra text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_admin uuid := privado.admin_id();
+  v_uid   uuid;
+  v_user  text;
+  v_err   jsonb;
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  v_err := privado.verificar_maestra(v_admin, p_maestra);
+  if v_err is not null then
+    return v_err;
+  end if;
+  select usado_por into v_uid from public.codigos where id = p_id;
+  if v_uid is null then
+    return jsonb_build_object('ok', false, 'error', 'sin_cuenta');
+  end if;
+  update public.usuarios set es_admin_web = coalesce(p_valor, false) where id = v_uid returning usuario into v_user;
+  perform privado.auditar(v_admin, case when coalesce(p_valor, false) then 'asignar_admin_web' else 'quitar_admin_web' end,
+    jsonb_build_object('usuario', v_user));
+  return jsonb_build_object('ok', true, 'admin_web', coalesce(p_valor, false));
 end $$;
 
 -- Registros de perfiles: lo que hace cada cuenta (ingresos, cambios, cierres), con país y hora
@@ -1909,6 +1942,7 @@ revoke all on function public.admin_paises()                       from public, 
 revoke all on function public.admin_registros_perfiles(int, bigint) from public, anon, authenticated;
 revoke all on function public.admin_borrar_registros_perfiles(bigint[], boolean, text) from public, anon, authenticated;
 revoke all on function public.admin_suspender_cuenta(uuid, boolean, text) from public, anon, authenticated;
+revoke all on function public.admin_asignar_admin_web(uuid, boolean, text) from public, anon, authenticated;
 revoke all on function public.admin_graficas()                      from public, anon, authenticated;
 revoke all on function public.cerrar_sesion(text, uuid)            from public, anon, authenticated;
 revoke all on function public.cerrar_otras_sesiones(text)          from public, anon, authenticated;
@@ -1969,6 +2003,7 @@ grant execute on function public.admin_restablecer_clave(uuid, text, text) to au
 grant execute on function public.cambiar_clave(text, text, text)   to anon, authenticated;
 grant execute on function public.admin_registros(int)              to authenticated;
 grant execute on function public.admin_suspender_cuenta(uuid, boolean, text) to authenticated;
+grant execute on function public.admin_asignar_admin_web(uuid, boolean, text) to authenticated;
 grant execute on function public.admin_graficas()                   to authenticated;
 grant execute on function public.admin_paises()                    to authenticated;
 grant execute on function public.admin_registros_perfiles(int, bigint) to authenticated;

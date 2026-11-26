@@ -58,19 +58,18 @@
       <section class="group">
         <h2 class="group-title">Personalización</h2>
         <div class="settings">
-          <div class="setting-card">
-            <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18z" fill="currentColor" stroke="none"/></svg></span>
-            <div class="setting-text">
-              <div class="setting-title">Elige tu modo</div>
-              <div class="setting-desc">"Sistema" sigue el modo de tu dispositivo; "OLED" es un negro puro que ahorra batería en pantallas OLED</div>
-            </div>
-            <div class="setting-control">
-              <span class="desplegable"><select id="tema-select" aria-label="Tema">
-                <option value="auto">Sistema</option>
-                <option value="dark">Oscuro</option>
-                <option value="oled">OLED</option>
-                <option value="light">Claro</option>
-              </select></span>
+          <div class="setting-card vis-card modo-card" id="modo" data-plegable>
+            <button type="button" class="vis-cab" id="modo-cab" aria-expanded="false" aria-controls="modo-cuerpo">
+              <span class="setting-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18z" fill="currentColor" stroke="none"/></svg></span>
+              <span class="vis-cab-texto"><span class="setting-title">Elige tu modo</span><span class="setting-desc">Sistema, claro, oscuro u OLED (negro puro que ahorra batería en pantallas OLED)</span></span>
+              <span class="vis-chev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+            </button>
+            <div class="vis-despl" id="modo-cuerpo" role="region" aria-labelledby="modo-cab" inert>
+              <div class="vis-despl-int">
+                <div class="vis-cuerpo">
+                  <div class="fondos modos" id="modos" role="radiogroup" aria-label="Modo"></div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -118,7 +117,6 @@
             <div class="vis-despl" id="fondo-cuerpo" role="region" aria-labelledby="fondo-cab" inert>
               <div class="vis-despl-int">
                 <div class="vis-cuerpo">
-                <div class="plegable-acciones"><button type="button" class="btn secondary" id="fondo-reset">Restablecer a normal</button></div>
 <div class="fondo-cuerpo">
               <div class="fondos" id="fondos" role="group" aria-label="Fondos"></div>
               <div class="fondo-acciones">

@@ -82,6 +82,7 @@
     var firma = [p.nombre, p.avatar ? p.avatar.length : 0, p.usuario].join("|");
     if (firma !== ultimo) { pintarAvatar($("perfil-avatar"), p); ultimo = firma; }
     var hn = $("perfil-nombre"); hn.textContent = p.nombre;
+    if (p.admin && A.iconoAdmin) hn.appendChild(A.iconoAdmin());
     if (p.mejor && A.iconoMejor) hn.appendChild(A.iconoMejor());
     $("perfil-usuario").textContent = p.usuario ? "@" + p.usuario : "";
     var on = p.estado === "online";
@@ -122,7 +123,7 @@
         var a = document.createElement("a"); a.className = "seg-fila"; a.href = "perfil.html?id=" + encodeURIComponent(u.id);
         var av = document.createElement("span"); av.className = "u-avatar seg-avatar"; av.setAttribute("aria-hidden", "true"); pintarAvatar(av, u);
         var tx = document.createElement("span"); tx.className = "seg-texto";
-        var n = document.createElement("span"); n.className = "seg-nombre"; n.textContent = u.nombre; if (u.mejor && A.iconoMejor) n.appendChild(A.iconoMejor());
+        var n = document.createElement("span"); n.className = "seg-nombre"; n.textContent = u.nombre; if (u.admin && A.iconoAdmin) n.appendChild(A.iconoAdmin()); if (u.mejor && A.iconoMejor) n.appendChild(A.iconoMejor());
         var us = document.createElement("span"); us.className = "seg-usuario"; us.textContent = u.usuario ? "@" + u.usuario : "";
         tx.append(n, us); a.append(av, tx); li.appendChild(a); ul.appendChild(li);
       });
@@ -163,7 +164,7 @@
         ocupado = false; btn.disabled = false;
         if (!r.ok && r.error === "demasiadas") {
           // Insistió demasiado tras rechazos: sub-notificación y botón desactivado (espera de 30 min)
-          A.toast({ icono: A.iconos.reloj, tipo: "aviso", ms: 8000, texto: t("Has enviado demasiadas solicitudes en poco tiempo. Podrás volver a intentarlo en") + " " + Math.max(1, Math.ceil((r.espera || 1800) / 60)) + " min." });
+          A.toast({ icono: A.iconos.reloj, tipo: "aviso", ms: 4000, texto: t("Has enviado demasiadas solicitudes en poco tiempo. Podrás volver a intentarlo en") + " " + Math.max(1, Math.ceil((r.espera || 1800) / 60)) + " min." });
           mostrarMsg(""); cargar(); return;
         }
         if (!r.ok) { mostrarMsg(t("No se pudo actualizar la amistad.")); return; }
