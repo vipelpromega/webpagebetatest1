@@ -82,7 +82,7 @@
     var firma = [p.nombre, p.avatar ? p.avatar.length : 0, p.usuario].join("|");
     if (firma !== ultimo) { pintarAvatar($("perfil-avatar"), p); ultimo = firma; }
     var hn = $("perfil-nombre"); hn.textContent = p.nombre;
-    if (p.admin && A.iconoAdmin) hn.appendChild(A.iconoAdmin());
+    var ir = A.iconoRol && A.iconoRol(p); if (ir) hn.appendChild(ir);
     if (p.mejor && A.iconoMejor) hn.appendChild(A.iconoMejor());
     $("perfil-usuario").textContent = p.usuario ? "@" + p.usuario : "";
     var on = p.estado === "online";
@@ -99,8 +99,57 @@
     $("perfil-editar").hidden = !p.yo;
     $("perfil-editar").setAttribute("data-tooltip", t("Editar mi perfil"));
     pintarSeguim(p);
+    pintarRoles(p);
+    pintarDescripcion(p);
     mostrarMsg("");
   }
+
+  // Roles: botón pequeño bajo la cabecera; al abrirlo lista todos los roles (insignias) con su icono
+  function pintarRoles(p) {
+    var caja = $("perfil-roles"), ul = $("perfil-roles-lista");
+    var roles = A.rolesDe ? A.rolesDe(p) : [];
+    caja.hidden = false;
+    ul.textContent = "";
+    if (!roles.length) {
+      var li0 = document.createElement("li"); li0.className = "perfil-rol vacio"; li0.textContent = t("Esta cuenta no tiene roles especiales."); ul.appendChild(li0);
+    }
+    roles.forEach(function (r, i) {
+      var li = document.createElement("li"); li.className = "perfil-rol";
+      var ico = A.iconoDeRol(r); ico.classList.add("grande"); ico.removeAttribute("title");
+      var tx = document.createElement("span"); tx.className = "perfil-rol-texto";
+      var n = document.createElement("span"); n.className = "perfil-rol-nombre"; n.textContent = t(r.nombre);
+      if (i === 0) { var m = document.createElement("span"); m.className = "perfil-rol-marca"; m.textContent = t("junto al nombre"); n.appendChild(m); }
+      var d = document.createElement("span"); d.className = "perfil-rol-desc"; d.textContent = t(r.desc);
+      tx.append(n, d); li.append(ico, tx); ul.appendChild(li);
+    });
+  }
+
+  // Descripción: la ve cualquiera; solo el dueño la edita
+  var editandoDesc = false, descActual = "";
+  function pintarDescripcion(p) {
+    if (editandoDesc) return;
+    descActual = p.descripcion || "";
+    var caja = $("perfil-desc"), tx = $("perfil-desc-texto");
+    tx.textContent = descActual; tx.hidden = !descActual;
+    $("perfil-desc-editar").hidden = !(p.yo && descActual);
+    $("perfil-desc-agregar").hidden = !(p.yo && !descActual);
+    $("perfil-desc-form").hidden = true;
+    caja.hidden = !(descActual || p.yo);
+  }
+  function abrirEdicionDesc(abrir) {
+    editandoDesc = abrir;
+    var form = $("perfil-desc-form");
+    form.hidden = !abrir;
+    $("perfil-desc-texto").hidden = abrir || !descActual;
+    $("perfil-desc-editar").hidden = abrir || !descActual;
+    $("perfil-desc-agregar").hidden = abrir || !!descActual;
+    $("perfil-desc-error").textContent = "";
+    if (abrir) {
+      var inp = $("perfil-desc-input"); inp.value = descActual; contarDesc(); inp.focus();
+      inp.setSelectionRange(inp.value.length, inp.value.length);
+    } else if (!descActual) $("perfil-desc-agregar").hidden = false;
+  }
+  function contarDesc() { $("perfil-desc-cont").textContent = $("perfil-desc-input").value.length + " / 300"; }
 
   // Lista de seguidores / seguidos en una tarjeta flotante; cada fila lleva al perfil de esa persona
   function abrirLista(tipo) {
@@ -123,7 +172,7 @@
         var a = document.createElement("a"); a.className = "seg-fila"; a.href = "perfil.html?id=" + encodeURIComponent(u.id);
         var av = document.createElement("span"); av.className = "u-avatar seg-avatar"; av.setAttribute("aria-hidden", "true"); pintarAvatar(av, u);
         var tx = document.createElement("span"); tx.className = "seg-texto";
-        var n = document.createElement("span"); n.className = "seg-nombre"; n.textContent = u.nombre; if (u.admin && A.iconoAdmin) n.appendChild(A.iconoAdmin()); if (u.mejor && A.iconoMejor) n.appendChild(A.iconoMejor());
+        var n = document.createElement("span"); n.className = "seg-nombre"; n.textContent = u.nombre; var ir2 = A.iconoRol && A.iconoRol(u); if (ir2) n.appendChild(ir2); if (u.mejor && A.iconoMejor) n.appendChild(A.iconoMejor());
         var us = document.createElement("span"); us.className = "seg-usuario"; us.textContent = u.usuario ? "@" + u.usuario : "";
         tx.append(n, us); a.append(av, tx); li.appendChild(a); ul.appendChild(li);
       });
@@ -172,6 +221,25 @@
         if (A.refrescarNotificaciones) A.refrescarNotificaciones();   // el contador de la barra se actualiza al momento
       });
     }
+    $("perfil-roles-btn").addEventListener("click", function () {
+      var ul = $("perfil-roles-lista"), abrir = ul.hidden;
+      ul.hidden = !abrir; this.setAttribute("aria-expanded", String(abrir)); this.classList.toggle("abierto", abrir);
+    });
+    $("perfil-desc-editar").addEventListener("click", function () { abrirEdicionDesc(true); });
+    $("perfil-desc-agregar").addEventListener("click", function () { abrirEdicionDesc(true); });
+    $("perfil-desc-cancelar").addEventListener("click", function () { abrirEdicionDesc(false); pintarDescripcion({ yo: true, descripcion: descActual }); });
+    $("perfil-desc-input").addEventListener("input", contarDesc);
+    $("perfil-desc-form").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var g = $("perfil-desc-guardar"), err = $("perfil-desc-error");
+      g.disabled = true; err.textContent = "";
+      A.guardarDescripcion($("perfil-desc-input").value).then(function (r) {
+        g.disabled = false;
+        if (!r.ok) { err.textContent = t(r.error === "larga" ? "La descripción es demasiado larga (máx. 300 caracteres)." : "No se pudo guardar la descripción."); return; }
+        descActual = r.descripcion; editandoDesc = false;
+        pintarDescripcion({ yo: true, descripcion: descActual });
+      });
+    });
     ["perfil-amigo", "perfil-rechazar", "perfil-mejor", "perfil-rechazar-mejor"].forEach(function (bid) {
       $(bid).addEventListener("click", function () { accion(this, this.dataset.accion); });
     });

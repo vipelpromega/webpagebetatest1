@@ -71,6 +71,35 @@
             </div>
           </div>
         </div>
+        <div class="perfil-roles" id="perfil-roles" hidden>
+          <button type="button" class="perfil-roles-btn" id="perfil-roles-btn" aria-expanded="false" aria-controls="perfil-roles-lista">
+            <svg class="roles-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.4-2.9 8.2-7 10-4.1-1.8-7-5.6-7-10V6l7-3z"/><path d="M9 12l2.2 2.2L15.2 10"/></svg>
+            <span>Roles</span>
+            <svg class="roles-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <ul class="perfil-roles-lista" id="perfil-roles-lista" hidden></ul>
+        </div>
+        <div class="perfil-desc" id="perfil-desc" hidden>
+          <p class="perfil-desc-texto" id="perfil-desc-texto"></p>
+          <button type="button" class="perfil-desc-vacia" id="perfil-desc-agregar" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Agregar una descripción</span>
+          </button>
+          <button type="button" class="btn perfil-desc-editar" id="perfil-desc-editar" data-tooltip="Editar descripción" hidden>
+            <span class="btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M13.5 8.5l3 3"/></svg></span><span class="btn-txt">Editar descripción</span>
+          </button>
+          <form class="perfil-desc-form" id="perfil-desc-form" hidden>
+            <label class="sr-only" for="perfil-desc-input">Descripción</label>
+            <textarea id="perfil-desc-input" rows="3" maxlength="300" placeholder="Cuéntales algo sobre ti" autocomplete="off"></textarea>
+            <div class="perfil-desc-pie">
+              <span class="perfil-desc-cont" id="perfil-desc-cont">0 / 300</span>
+              <span class="perfil-desc-botones">
+                <button type="button" class="btn secondary" id="perfil-desc-cancelar">Cancelar</button>
+                <button type="submit" class="btn" id="perfil-desc-guardar">Guardar</button>
+              </span>
+            </div>
+            <p class="f-error" id="perfil-desc-error" role="alert"></p>
+          </form>
+        </div>
         <dl class="perfil-extra" id="perfil-extra" hidden>
           <div><dt>Miembro desde</dt><dd id="perfil-desde"></dd></div>
         </dl>

@@ -461,11 +461,15 @@ body.pagina-principal { --content-w: 1100px; }
 .u-datos { display: flex; flex-direction: column; min-width: 0; }
 .u-nombre { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 14px; color: var(--text); }
 .u-nombre-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Insignia de administrador de la página: sello de verificado (círculo con dientes y palomita) */
-.admin-ico { display: inline-grid; place-items: center; flex-shrink: 0; margin-left: 5px; color: #1d8cf8; vertical-align: -3px; }
-.admin-ico svg { display: block; width: 17px; height: 17px; }
-.admin-ico .sello { fill: currentColor; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
-.admin-ico .palomita { fill: none; stroke: #fff; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+/* Roles de la página: sello de verificado (círculo con dientes). Fundador = azul con estrella; Administrador = violeta con palomita */
+.rol-ico { display: inline-grid; place-items: center; flex-shrink: 0; margin-left: 5px; vertical-align: -3px; }
+.rol-ico svg { display: block; width: 17px; height: 17px; }
+.rol-ico .sello { fill: currentColor; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.rol-ico .palomita { fill: none; stroke: #fff; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+.rol-ico .estrella { fill: #fff; stroke: #fff; stroke-width: 1; stroke-linejoin: round; }
+.fundador-ico { color: #1d8cf8; }
+.admin-ico { color: #a259ff; }
+.u-nombre .rol-ico { margin-left: -2px; }   /* en la tarjeta Usuarios, pegado al nombre */
 .mejor-ico { display: inline-grid; place-items: center; flex-shrink: 0; color: #f2b01e; }
 .mejor-ico svg { display: block; width: 17px; height: 17px; fill: currentColor; stroke: none; filter: drop-shadow(0 0 .5px rgba(160, 100, 0, .55)); }
 .mejor-ico svg .atras { opacity: .62; }

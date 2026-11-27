@@ -16,6 +16,7 @@ drop function if exists public.cambiar_nombre(text, text);
 drop function if exists public.salir(text);
 drop function if exists public.mis_sesiones(text);
 drop function if exists public.mi_historial(text);
+drop function if exists public.guardar_descripcion(text, text);
 drop function if exists public.mis_preferencias(text);
 drop function if exists public.guardar_preferencias(text, jsonb);
 drop function if exists public.admin_paises();

@@ -630,19 +630,8 @@ begin
 end $$;
 
 -- 6a) Historial de inicios de sesión
-create or replace function public.mi_historial(p_token text)
-returns jsonb language plpgsql security definer set search_path = '' as $$
-declare v public.usuarios;
-begin
-  v := privado.usuario_de_token(p_token);
-  if v.id is null then
-    return jsonb_build_object('ok', false, 'error', 'sesion');
-  end if;
-  return jsonb_build_object('ok', true, 'eventos', coalesce((
-    select jsonb_agg(jsonb_build_object('fecha', h.fecha, 'evento', h.evento, 'dispositivo', h.dispositivo, 'ip', h.ip)
-                     order by h.fecha desc)
-      from (select * from public.historial where usuario_id = v.id order by fecha desc limit 30) h), '[]'::jsonb));
-end $$;
+-- El historial de inicios de sesión ya no se ve desde la página: solo en el panel de administración
+drop function if exists public.mi_historial(text);
 
 -- 6c) Preferencias que viajan con la cuenta
 create or replace function public.mis_preferencias(p_token text)
@@ -844,6 +833,18 @@ revoke all on table public.seguimientos from public, anon, authenticated;
 
 -- Administradores de la página principal: lo asigna el panel de administración y todos ven su insignia junto al nombre
 alter table public.usuarios add column if not exists es_admin_web boolean not null default false;
+-- Fundador: un único usuario (el índice único lo garantiza). Se asigna a @yauyo; si esa cuenta se borra, solo se puede
+-- volver a asignar desde la consola del panel de administración (comando «fundador») mientras @yauyo no exista.
+alter table public.usuarios add column if not exists es_fundador boolean not null default false;
+create unique index if not exists usuarios_un_fundador on public.usuarios (es_fundador) where es_fundador;
+-- Descripción que cada usuario escribe en su perfil
+alter table public.usuarios add column if not exists descripcion text check (descripcion is null or char_length(descripcion) <= 300);
+do $$
+begin
+  if not exists (select 1 from public.usuarios where es_fundador) then
+    update public.usuarios set es_fundador = true where usuario = 'yauyo';
+  end if;
+end $$;
 
 -- Amistades: son de dos sentidos. Cuando alguien acepta una solicitud se guardan las dos filas
 -- (usuario→amigo y amigo→usuario), así «los amigos de X» sigue siendo «las filas donde usuario = X».
@@ -965,6 +966,25 @@ begin
   end if;
   return jsonb_build_object('ok', true, 'sigo', coalesce(p_seguir, true),
     'seguidores', (select count(*) from public.seguimientos s join public.usuarios x on x.id = s.seguidor where s.seguido = p_id and not x.suspendida));
+end $$;
+
+-- Descripción del perfil (máx. 300 caracteres; vacía = quitarla)
+create or replace function public.guardar_descripcion(p_token text, p_texto text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v public.usuarios;
+  t text;
+begin
+  v := privado.usuario_de_token(p_token);
+  if v.id is null then
+    return jsonb_build_object('ok', false, 'error', 'sesion');
+  end if;
+  t := btrim(regexp_replace(coalesce(p_texto, ''), '[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', 'g'));
+  if char_length(t) > 300 then
+    return jsonb_build_object('ok', false, 'error', 'larga');
+  end if;
+  update public.usuarios set descripcion = nullif(t, '') where id = v.id;
+  return jsonb_build_object('ok', true, 'descripcion', nullif(t, ''));
 end $$;
 
 -- Estado de la relación de amistad entre «v» (quien mira) y «p_id», para devolverlo al cliente
@@ -1131,7 +1151,7 @@ begin
   return jsonb_build_object('ok', true, 'total', v_cant -> 'total', 'firma', v_cant -> 'firma',
     'items', coalesce((
       select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
-                                          'tipo', n.tipo, 'creado', n.creado, 'admin', x.es_admin_web) order by n.creado desc, x.id)
+                                          'tipo', n.tipo, 'creado', n.creado, 'admin', x.es_admin_web, 'fundador', x.es_fundador) order by n.creado desc, x.id)
         from (select * from (
                 select s.de as quien, s.tipo, s.creado from public.solicitudes_amistad s where s.para = v.id
                 union all
@@ -1190,14 +1210,14 @@ begin
   if p_tipo = 'amigos' then
     return jsonb_build_object('ok', true, 'tipo', p_tipo, 'usuarios', coalesce((
       select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
-                       'admin', x.es_admin_web, 'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
+                       'admin', x.es_admin_web, 'fundador', x.es_fundador, 'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
                        order by a.creado desc, x.id)
         from public.amistades a join public.usuarios x on x.id = a.amigo
        where a.usuario = u.id and not x.suspendida), '[]'::jsonb));
   end if;
   return jsonb_build_object('ok', true, 'tipo', p_tipo, 'usuarios', coalesce((
     select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
-                     'admin', x.es_admin_web, 'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
+                     'admin', x.es_admin_web, 'fundador', x.es_fundador, 'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
                      order by s.creado desc, x.id)
       from public.seguimientos s
       join public.usuarios x on x.id = case when p_tipo = 'seguidores' then s.seguidor else s.seguido end
@@ -1251,6 +1271,8 @@ begin
       'siguiendo',  (select count(*) from public.seguimientos s join public.usuarios x on x.id = s.seguido where s.seguidor = u.id and not x.suspendida),
       'amigos', (select count(*) from public.amistades a join public.usuarios x on x.id = a.amigo where a.usuario = u.id and not x.suspendida),
       'admin', u.es_admin_web,
+      'fundador', u.es_fundador,
+      'descripcion', u.descripcion,
       'ver_seguim', privado.ve_seguim(u.id, u.visibilidades_seguim, v.id),
       'amigo', v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id),
       'mejor', v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id and a.mejor),
@@ -1291,6 +1313,7 @@ begin
              end as estado,
              (v_miembro and u.id = v.id) as yo,
              u.es_admin_web as admin,
+             u.es_fundador as fundador,
              (v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id and a.mejor)) as mejor
         from public.usuarios u
        where not u.suspendida
@@ -1458,7 +1481,8 @@ begin
       select c.id, c.etiqueta, c.vista,
              case when c.usado_en is not null then 'usada' else 'sin_usar' end as estado,
              c.creado, c.usado_en, c.creado_por_email, coalesce(u.suspendida, false) as suspendida,
-             coalesce(u.es_admin_web, false) as admin_web
+             coalesce(u.es_admin_web, false) as admin_web,
+             coalesce(u.es_fundador, false) as fundador
         from public.codigos c
         left join public.usuarios u on u.id = c.usado_por
        order by c.creado desc
@@ -1536,7 +1560,7 @@ begin
     'estado', case when v.usado_en is not null then 'usada' else 'sin_usar' end,
     'creado', v.creado, 'usado_en', v.usado_en, 'creado_por_email', v.creado_por_email,
     'cuenta', case when u.id is null then null
-                   else jsonb_build_object('usuario', u.usuario, 'nombre', u.nombre, 'avatar', u.avatar, 'suspendida', u.suspendida, 'suspendida_en', u.suspendida_en, 'admin_web', u.es_admin_web,
+                   else jsonb_build_object('usuario', u.usuario, 'nombre', u.nombre, 'avatar', u.avatar, 'suspendida', u.suspendida, 'suspendida_en', u.suspendida_en, 'admin_web', u.es_admin_web, 'fundador', u.es_fundador,
       'pais_registro', (select h.pais from public.historial h where h.usuario_id = u.id and h.evento = 'registro' order by h.fecha limit 1),
       'paises', coalesce((select jsonb_agg(x.p order by x.n desc, x.p) from (
           select coalesce(upper(h.pais), '??') as p, count(*) as n from public.historial h
@@ -1849,6 +1873,7 @@ begin
       'sesiones              sesiones activas por cuenta',
       'cerrar <usuario>      cierra las sesiones de una cuenta',
       'cerrar-todas          cierra TODAS las sesiones de la web',
+      'fundador <usuario>    asigna el rol de Fundador (solo si @yauyo no existe y no hay fundador)',
       'liberar               quita todos los bloqueos por intentos fallidos',
       'limpiar               borra sesiones caducadas e intentos antiguos'];
   elsif v_cmd = 'estado' then
@@ -1873,6 +1898,20 @@ begin
       v_out := v_out || (r.usuario || ': ' || r.n);
     end loop;
     if cardinality(v_out) = 0 then v_out := array['No hay sesiones activas.']; end if;
+  elsif v_cmd = 'fundador' then
+    if v_arg !~ '^[a-z0-9._-]{3,20}$' then
+      v_out := array['Uso: fundador <usuario>'];
+    elsif exists (select 1 from public.usuarios where usuario = 'yauyo') then
+      v_out := array['No se puede: la cuenta @yauyo existe. El rol de Fundador es solo suyo.'];
+    elsif exists (select 1 from public.usuarios where es_fundador) then
+      v_out := array['No se puede: ya hay un Fundador.'];
+    elsif not exists (select 1 from public.usuarios where usuario = lower(v_arg)) then
+      v_out := array['No existe la cuenta @' || lower(v_arg) || '.'];
+    else
+      update public.usuarios set es_fundador = true where usuario = lower(v_arg);
+      perform privado.auditar(v_admin, 'asignar_fundador', jsonb_build_object('usuario', lower(v_arg)));
+      v_out := array['@' || lower(v_arg) || ' ahora es Fundador.'];
+    end if;
   elsif v_cmd = 'cerrar' then
     if v_arg !~ '^[a-z0-9._-]{3,20}$' then
       v_out := array['Uso: cerrar <usuario>'];
@@ -1918,13 +1957,13 @@ revoke all on function public.yo(text)                             from public, 
 revoke all on function public.cambiar_nombre(text, text)           from public, anon, authenticated;
 revoke all on function public.salir(text)                          from public, anon, authenticated;
 revoke all on function public.mis_sesiones(text)                   from public, anon, authenticated;
-revoke all on function public.mi_historial(text)                   from public, anon, authenticated;
 revoke all on function public.latido(text)                          from public, anon, authenticated;
 revoke all on function public.mi_visibilidad(text)                  from public, anon, authenticated;
 revoke all on function public.guardar_estado(text, text)            from public, anon, authenticated;
 revoke all on function public.desconectando(text)                   from public, anon, authenticated;
 revoke all on function public.seguir(text, uuid, boolean)           from public, anon, authenticated;
 revoke all on function public.amistad(text, uuid, text)             from public, anon, authenticated;
+revoke all on function public.guardar_descripcion(text, text)       from public, anon, authenticated;
 revoke all on function public.notificaciones_cantidad(text)         from public, anon, authenticated;
 revoke all on function public.notificaciones(text)                  from public, anon, authenticated;
 revoke all on function public.descartar_notificacion(text, uuid)    from public, anon, authenticated;
@@ -1955,13 +1994,13 @@ grant execute on function public.yo(text)                          to anon, auth
 grant execute on function public.cambiar_nombre(text, text)        to anon, authenticated;
 grant execute on function public.salir(text)                       to anon, authenticated;
 grant execute on function public.mis_sesiones(text)                to anon, authenticated;
-grant execute on function public.mi_historial(text)                to anon, authenticated;
 grant execute on function public.latido(text)                       to anon, authenticated;
 grant execute on function public.mi_visibilidad(text)               to anon, authenticated;
 grant execute on function public.guardar_estado(text, text)         to anon, authenticated;
 grant execute on function public.desconectando(text)                to anon, authenticated;
 grant execute on function public.seguir(text, uuid, boolean)        to anon, authenticated;
 grant execute on function public.amistad(text, uuid, text)          to anon, authenticated;
+grant execute on function public.guardar_descripcion(text, text)    to anon, authenticated;
 grant execute on function public.notificaciones_cantidad(text)      to anon, authenticated;
 grant execute on function public.notificaciones(text)               to anon, authenticated;
 grant execute on function public.descartar_notificacion(text, uuid) to anon, authenticated;

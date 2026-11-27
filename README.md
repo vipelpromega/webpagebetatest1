@@ -69,7 +69,7 @@ en su botón de la barra lateral).
 
 ## Historial, tema del sistema y suspensión
 
-- **Historial de inicios de sesión** (Configuración → Cuenta): últimos 30 eventos (inicio de sesión, cuenta creada, intento fallido, intento con cuenta suspendida) con dispositivo e IP. Se conserva 180 días. Tabla `historial` (sin acceso directo; solo la función `mi_historial`).
+- **Historial de inicios de sesión**: ya no se muestra a los usuarios (se quitó de Configuración y la función `mi_historial`); solo lo ve el administrador en la página de administración. Se conserva 180 días en la tabla `historial`.
 - **Tema "Sistema"** (Configuración → Apariencia): sigue el modo claro/oscuro del dispositivo y cambia al instante cuando el dispositivo cambia. Es el valor por defecto.
 - **Cuentas suspendidas**: un administrador puede suspender una cuenta (cierra sus sesiones y no la deja entrar). Al intentarlo ve «Tu cuenta está suspendida».
 - Para activarlo, vuelve a ejecutar `supabase/schema.sql` (no hace falta `reiniciar.sql`).
@@ -116,3 +116,7 @@ En la barra, encima de la foto de perfil, está **Notificaciones** con un contad
 Apariencia: «Elige tu modo», «Fondo de la página», «Color de acento» y «Sesiones activas» son tarjetas plegables con flecha, como Visibilidad; modo y fondo usan miniaturas estilo «Temas» de Windows 11. Las sub-notificaciones no tienen botón de cerrar: se van solas a los ~3 s. Las miniaturas de fondo imitan las de «Temas» de Windows 11 (fondo + ventanita con la barra del color de acento) y la barra lateral es de cristal esmerilado (se apaga con «Difuminado de tarjetas y barra»).
 
 Las tarjetas de Visibilidad solo tienen una flecha a un lado, se despliegan con una animación suave y se cierran solas poco después de cambiar una opción.
+
+**Roles:** `Fundador` (prioridad 1, sello de estrella azul) y `Administrador` (prioridad 2, sello violeta). Junto al nombre se muestra el icono del rol con menor número de prioridad. En el perfil, el botón «Roles» lista todos los roles de la cuenta. El fundador es solo `@yauyo` (se asigna al ejecutar `schema.sql` si no hay fundador). Si esa cuenta se borra, en la consola del panel de administración `fundador <usuario>` lo asigna únicamente cuando `yauyo` no existe y no hay otro fundador.
+
+**Descripción:** cada usuario puede añadir o editar una descripción (hasta 300 caracteres) en su perfil; todos la ven. Función `guardar_descripcion`.

@@ -379,13 +379,12 @@
     });
   }
 
-  function historialDeAcceso() {
+  // Descripción del perfil (máx. 300 caracteres)
+  function guardarDescripcion(texto) {
     var s = leerSesion();
-    if (!s) return Promise.resolve({ ok: false, error: mensaje({ error: "sesion" }) });
-    return rpc("mi_historial", { p_token: s.token }).then(function (r) {
-      if (r.ok) return { ok: true, eventos: r.eventos || [] };
-      if (r.error === "sesion") { quitar(K_SESION); location.reload(); }
-      return { ok: false, error: mensaje(r) };
+    if (!s) return Promise.resolve({ ok: false, error: "sin_sesion" });
+    return rpc("guardar_descripcion", { p_token: s.token, p_texto: texto }).then(function (r) {
+      return r.ok ? { ok: true, descripcion: r.descripcion || "" } : { ok: false, error: r.error || "error" };
     });
   }
 
@@ -475,15 +474,32 @@
   };
   // «Mejor amigo»: dos personas doradas (relleno, como los iconos «llenos» de Windows 11)
   var DOS_PERSONAS_ORO = '<svg viewBox="0 0 24 24" aria-hidden="true"><g class="atras"><circle cx="17.2" cy="8.8" r="2.7"/><path d="M16.8 14.3c2.7.1 4.7 1.9 4.7 4.4 0 1-.7 1.8-1.7 1.8h-2.6c.3-.5.4-1 .4-1.6 0-1.8-.8-3.4-2.1-4.4.4-.1.8-.2 1.3-.2z"/></g><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19.1c0-2.7 2.2-4.8 4.9-4.8h3.2c2.7 0 4.9 2.1 4.9 4.8 0 .8-.6 1.4-1.4 1.4H3.9c-.8 0-1.4-.6-1.4-1.4z"/></svg>';
-  // Administradores de la página: sello de verificado (círculo con dientes y una palomita), visible para todos
-  var SELLO_ADMIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="sello" d="M12.00 1.40 L15.41 3.78 L19.50 4.50 L20.22 8.59 L22.60 12.00 L20.22 15.41 L19.50 19.50 L15.41 20.22 L12.00 22.60 L8.59 20.22 L4.50 19.50 L3.78 15.41 L1.40 12.00 L3.78 8.59 L4.50 4.50 L8.59 3.78Z"/><path class="palomita" d="M8 12.4l2.7 2.7L16.2 9.4"/></svg>';
-  function iconoAdmin() {
+  // Roles (insignias) de la página. Junto al nombre se muestra el icono del rol con la prioridad MÁS BAJA (1 = la más alta).
+  // Los dos son un sello de verificado (círculo con dientes): el de Fundador lleva una estrella y el de Administrador una palomita.
+  var DIENTES = 'M12.00 1.40 L15.41 3.78 L19.50 4.50 L20.22 8.59 L22.60 12.00 L20.22 15.41 L19.50 19.50 L15.41 20.22 L12.00 22.60 L8.59 20.22 L4.50 19.50 L3.78 15.41 L1.40 12.00 L3.78 8.59 L4.50 4.50 L8.59 3.78Z';
+  var ROLES = [
+    { id: "fundador", prioridad: 1, nombre: "Fundador", desc: "Creó la página y es su fundador.",
+      svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="sello" d="' + DIENTES + '"/><path class="estrella" d="M12.00 7.30 L13.29 10.62 L16.85 10.82 L14.09 13.08 L15.00 16.53 L12.00 14.60 L9.00 16.53 L9.91 13.08 L7.15 10.82 L10.71 10.62Z"/></svg>' },
+    { id: "admin", prioridad: 2, nombre: "Administrador", desc: "Administra la página principal.",
+      svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="sello" d="' + DIENTES + '"/><path class="palomita" d="M8 12.4l2.7 2.7L16.2 9.4"/></svg>' }
+  ];
+  function tr_(x) { return window.I18n && window.I18n.t ? window.I18n.t(x) : x; }
+  // Roles que tiene un usuario (objeto con las banderas fundador / admin), ordenados por prioridad
+  function rolesDe(u) {
+    return ROLES.filter(function (r) { return !!(u && u[r.id]); }).sort(function (a, b) { return a.prioridad - b.prioridad; });
+  }
+  function iconoDeRol(r) {
     var e = document.createElement("span");
-    e.className = "admin-ico"; e.setAttribute("role", "img");
-    var tt = window.I18n && window.I18n.t ? window.I18n.t("Administrador de la página") : "Administrador de la página";
-    e.setAttribute("aria-label", tt); e.title = tt; e.innerHTML = SELLO_ADMIN;
+    e.className = "rol-ico " + r.id + "-ico"; e.setAttribute("role", "img");
+    e.setAttribute("aria-label", tr_(r.nombre)); e.title = tr_(r.nombre); e.innerHTML = r.svg;
     return e;
   }
+  // Icono que va al lado del nombre: el del rol de prioridad más baja (o null si no tiene roles)
+  function iconoRol(u) {
+    var r = rolesDe(u)[0];
+    return r ? iconoDeRol(r) : null;
+  }
+  function iconoAdmin() { return iconoDeRol(ROLES[1]); }
   function iconoMejor() {
     var e = document.createElement("span");
     e.className = "mejor-ico"; e.setAttribute("role", "img");
@@ -554,6 +570,10 @@
     dosPersonasOro: DOS_PERSONAS_ORO,
     iconoMejor: iconoMejor,
     iconoAdmin: iconoAdmin,
+    iconoRol: iconoRol,
+    rolesDe: rolesDe,
+    iconoDeRol: iconoDeRol,
+    guardarDescripcion: guardarDescripcion,
     listaUsuarios: listaUsuarios,
     estadosUsuarios: estadosUsuarios,
     miVisibilidad: miVisibilidad,
@@ -563,7 +583,6 @@
     listaSeguimiento: listaSeguimiento,
     preferenciasDeCuenta: preferenciasDeCuenta,
     guardarPreferenciasDeCuenta: guardarPreferenciasDeCuenta,
-    historialDeAcceso: historialDeAcceso,
     sesionesActivas: sesionesActivas,
     cerrarSesionPorId: cerrarSesionPorId,
     cerrarOtrasSesiones: cerrarOtrasSesiones,
@@ -905,7 +924,7 @@
     var tit = document.createElement("div"); tit.className = "subnotif-tit";
     if (o.nombre) {
       var b = document.createElement("strong"); b.textContent = o.nombre; tit.appendChild(b);
-      if (o.admin) tit.appendChild(iconoAdmin());
+      var irol = iconoRol(o); if (irol) tit.appendChild(irol);
       tit.appendChild(document.createTextNode(" "));
     }
     tit.appendChild(document.createTextNode(o.texto));
@@ -975,7 +994,7 @@
         firma = r.firma; ponerTotal(r.total);
         if (!primera) {
           nuevas.slice(0, 3).forEach(function (it) {
-            toast({ nombre: it.nombre, admin: it.admin, usuario: it.usuario, avatar: it.avatar, texto: tr(textoDe(it)), href: "perfil.html?id=" + encodeURIComponent(it.id), tipo: it.tipo });
+            toast({ nombre: it.nombre, admin: it.admin, fundador: it.fundador, usuario: it.usuario, avatar: it.avatar, texto: tr(textoDe(it)), href: "perfil.html?id=" + encodeURIComponent(it.id), tipo: it.tipo });
           });
           try { window.dispatchEvent(new Event("notif-cambio")); } catch (e) { /* nada */ }
         }
@@ -1012,7 +1031,7 @@
       rellenarAvatar(a, { usuario: it.usuario || it.nombre, avatar: typeof it.avatar === "string" && RE_AVATAR.test(it.avatar) ? it.avatar : null }, false);
       av.appendChild(a);
       var nombre = el("a", { class: "notif-nombre", href: "perfil.html?id=" + encodeURIComponent(it.id) }, String(it.nombre));
-      var insig = it.admin ? iconoAdmin() : document.createTextNode("");
+      var insig = iconoRol(it) || document.createTextNode("");
       var txt = el("span", { class: "notif-txt" }, textoDe(it));
       var botones = el("div", { class: "notif-botones" });
       var msg = el("p", { class: "f-error notif-msg", role: "alert" });

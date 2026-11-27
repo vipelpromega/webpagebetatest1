@@ -178,7 +178,7 @@
         var nom = document.createElement("span"); nom.className = "u-nombre";
         var nomT = document.createElement("span"); nomT.className = "u-nombre-t"; nomT.textContent = u.nombre + (u.yo ? " (" + t("tú") + ")" : "");
         nom.appendChild(nomT);
-        if (u.admin && window.Auth.iconoAdmin) nom.appendChild(window.Auth.iconoAdmin());
+        var ir = window.Auth.iconoRol && window.Auth.iconoRol(u); if (ir) nom.appendChild(ir);
         if (u.mejor && window.Auth.iconoMejor) nom.appendChild(window.Auth.iconoMejor());
         var sub = document.createElement("span"); sub.className = "u-estado";
         datos.appendChild(nom); datos.appendChild(sub);

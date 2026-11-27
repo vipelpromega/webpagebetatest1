@@ -40,8 +40,8 @@
 .seg-texto { display: flex; flex-direction: column; min-width: 0; }
 .seg-nombre { display: flex; align-items: center; gap: 5px; overflow: hidden; white-space: nowrap; }
 .seg-usuario { color: var(--muted); font-size: 13px; }
-.perfil-datos h2 .mejor-ico, .perfil-datos h2 .admin-ico { margin-left: 8px; vertical-align: middle; }
-.perfil-datos h2 .mejor-ico svg, .perfil-datos h2 .admin-ico svg { width: 20px; height: 20px; }
+.perfil-datos h2 .mejor-ico, .perfil-datos h2 .rol-ico { margin-left: 8px; vertical-align: middle; }
+.perfil-datos h2 .mejor-ico svg, .perfil-datos h2 .rol-ico svg { width: 20px; height: 20px; }
 .perfil-acciones .btn:disabled { opacity: .55; cursor: not-allowed; }
 
 /* Botones del perfil con icono (estilo Windows 11) */
@@ -64,3 +64,49 @@
 .perfil-acciones .btn[data-tooltip]:hover::after, .perfil-acciones .btn[data-tooltip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0); transition-delay: .25s; }
 .perfil-acciones .btn:disabled { opacity: .5; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) { .perfil-acciones .btn[data-tooltip]::after { transition: none; } }
+
+/* Roles (botón pequeño bajo la cabecera) */
+.perfil-roles { margin-top: 12px; }
+.perfil-roles-btn {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 0 10px 0 9px; border-radius: 15px; cursor: pointer;
+  background: var(--subtle); color: var(--text); border: 1px solid var(--border); font: inherit; font-size: 13px;
+  transition: background .12s, border-color .12s;
+}
+.perfil-roles-btn:hover { background: var(--subtle-hover); }
+.perfil-roles-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.perfil-roles-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.perfil-roles-btn .roles-chev { width: 14px; height: 14px; transition: transform .2s ease; }
+.perfil-roles-btn.abierto .roles-chev { transform: rotate(180deg); }
+.perfil-roles-lista { list-style: none; margin: 8px 0 0; padding: 4px; display: flex; flex-direction: column; gap: 2px; max-width: 420px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--subtle); animation: m-entra .22s ease both; }
+.perfil-roles-lista[hidden] { display: none; }
+.perfil-rol { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 6px; }
+.perfil-rol.vacio { color: var(--muted); font-size: 13px; }
+.perfil-rol .rol-ico { margin: 0; }
+.perfil-rol .rol-ico svg { width: 26px; height: 26px; }
+.perfil-rol-texto { display: flex; flex-direction: column; min-width: 0; }
+.perfil-rol-nombre { font-weight: 600; font-size: 14px; }
+.perfil-rol-marca { margin-left: 8px; padding: 1px 7px; border-radius: 9px; font-size: 11px; font-weight: 400; color: var(--muted); border: 1px solid var(--border); }
+.perfil-rol-desc { font-size: 13px; color: var(--muted); }
+
+/* Descripción del perfil */
+.perfil-desc { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+.perfil-desc-texto { margin: 0; flex: 1 1 260px; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.perfil-desc-texto[hidden] { display: none; }
+.perfil-desc-editar { width: 34px; min-width: 34px; height: 30px; padding: 0; justify-content: center; position: relative; }
+.perfil-desc-editar .btn-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.perfil-desc-editar[data-tooltip]::after {
+  content: attr(data-tooltip); position: absolute; right: 0; bottom: calc(100% + 8px); padding: 5px 9px; border-radius: 6px; font-size: 12px; white-space: nowrap; pointer-events: none;
+  background: var(--flyout); color: var(--text); border: 1px solid var(--border); opacity: 0; transition: opacity .12s ease;
+}
+.perfil-desc-editar:hover::after, .perfil-desc-editar:focus-visible::after { opacity: 1; transition-delay: .25s; }
+.perfil-desc-vacia { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 16px; border: 1px dashed var(--border); background: transparent; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+.perfil-desc-vacia:hover { background: var(--subtle-hover); color: var(--text); }
+.perfil-desc-vacia svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.perfil-desc-vacia[hidden], .perfil-desc-editar[hidden], .perfil-desc-form[hidden] { display: none; }
+.perfil-desc-form { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; }
+.perfil-desc-form textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 76px; max-height: 220px; padding: 9px 11px; font: inherit; line-height: 1.45; color: var(--text); background: var(--input-bg, var(--subtle)); border: 1px solid var(--border); border-bottom-color: var(--muted); border-radius: var(--radius-sm); }
+.perfil-desc-form textarea:focus { outline: none; border-bottom: 2px solid var(--accent); }
+.perfil-desc-pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.perfil-desc-cont { font-size: 12px; color: var(--muted); }
+.perfil-desc-botones { display: flex; gap: 8px; }
+.perfil-desc-form .f-error:empty { display: none; }
