@@ -112,11 +112,16 @@
     caja.hidden = !roles.length;
     if (!roles.length) { fila.hidden = true; $("perfil-roles-btn").setAttribute("aria-expanded", "false"); }
     roles.forEach(function (r) {
-      var a = document.createElement("a"); a.className = "perfil-rol-btn"; a.href = "roles.html#" + r.id;
+      var a = document.createElement("span"); a.className = "perfil-rol-btn"; a.tabIndex = 0;
       a.setAttribute("data-tooltip", t(r.nombre)); a.setAttribute("aria-label", t(r.nombre)); a.setAttribute("role", "listitem");
       var ico = A.iconoDeRol(r); ico.removeAttribute("title"); ico.removeAttribute("role"); ico.removeAttribute("aria-label");
       a.appendChild(ico); fila.appendChild(a);
     });
+    if (roles.length) {
+      var q = document.createElement("a"); q.className = "perfil-rol-btn perfil-rol-ayuda"; q.href = "roles.html"; q.textContent = "?";
+      q.setAttribute("data-tooltip", t("¿Qué son los roles?")); q.setAttribute("aria-label", t("¿Qué son los roles?"));
+      fila.appendChild(q);
+    }
   }
 
   // Descripción: la ve cualquiera; solo el dueño la edita

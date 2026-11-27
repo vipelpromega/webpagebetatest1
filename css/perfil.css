@@ -72,6 +72,8 @@
 .perfil-roles-fila { display: flex; flex-wrap: wrap; gap: 1px; padding: 3px 3px; min-width: 0; max-width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 7px; background: var(--subtle); box-shadow: inset 0 1px 0 rgba(255,255,255,.04); animation: m-entra .22s ease both; }
 .perfil-roles-fila .perfil-rol-btn { width: 24px; height: 24px; border: 0; border-radius: 5px; background: transparent; transition: none; }
 .perfil-roles-fila .perfil-rol-btn:hover { transform: none; background: transparent; }
+.perfil-rol-ayuda { font-size: 13px; font-weight: 600; color: var(--muted); }
+.perfil-rol-ayuda:hover { color: var(--text); }
 .perfil-roles-fila .perfil-rol-btn .rol-ico svg { width: 17px; height: 17px; }
 .perfil-roles-fila[hidden] { display: none; }
 .perfil-roles-btn { padding: 0; font: inherit; color: var(--text); cursor: pointer; }
