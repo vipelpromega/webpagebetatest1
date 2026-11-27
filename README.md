@@ -117,6 +117,6 @@ Apariencia: «Elige tu modo», «Fondo de la página», «Color de acento» y «
 
 Las tarjetas de Visibilidad solo tienen una flecha a un lado, se despliegan con una animación suave y se cierran solas poco después de cambiar una opción.
 
-**Roles:** `Fundador` (prioridad 1, sello de estrella azul) y `Administrador` (prioridad 2, sello violeta). Junto al nombre se muestra el icono del rol con menor número de prioridad. En el perfil, el botón «Roles» lista todos los roles de la cuenta. El fundador es solo `@yauyo` (se asigna al ejecutar `schema.sql` si no hay fundador). Si esa cuenta se borra, en la consola del panel de administración `fundador <usuario>` lo asigna únicamente cuando `yauyo` no existe y no hay otro fundador.
+**Roles:** `Fundador` (prioridad 1, sello azul con palomita) y `Administrador` (prioridad 2, sello violeta con estrella), ambos con degradado. Junto al nombre se muestra el icono del rol con menor número de prioridad. En el perfil, una fila de iconos (con tooltip) muestra todos los roles; al hacer clic se abre `roles.html`, que explica cada uno. El fundador es solo `@yauyo` (se asigna al ejecutar `schema.sql` si no hay fundador). Si esa cuenta se borra, en la consola del panel de administración `fundador <usuario>` lo asigna únicamente cuando `yauyo` no existe y no hay otro fundador.
 
 **Descripción:** cada usuario puede añadir o editar una descripción (hasta 300 caracteres) en su perfil; todos la ven. Función `guardar_descripcion`.

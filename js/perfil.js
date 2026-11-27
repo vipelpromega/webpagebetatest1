@@ -104,23 +104,17 @@
     mostrarMsg("");
   }
 
-  // Roles: botón pequeño bajo la cabecera; al abrirlo lista todos los roles (insignias) con su icono
+  // Roles: solo iconos (con tooltip); cada uno lleva a la página «Roles» donde se explican
   function pintarRoles(p) {
-    var caja = $("perfil-roles"), ul = $("perfil-roles-lista");
+    var caja = $("perfil-roles"), fila = $("perfil-roles-fila");
     var roles = A.rolesDe ? A.rolesDe(p) : [];
-    caja.hidden = false;
-    ul.textContent = "";
-    if (!roles.length) {
-      var li0 = document.createElement("li"); li0.className = "perfil-rol vacio"; li0.textContent = t("Esta cuenta no tiene roles especiales."); ul.appendChild(li0);
-    }
-    roles.forEach(function (r, i) {
-      var li = document.createElement("li"); li.className = "perfil-rol";
-      var ico = A.iconoDeRol(r); ico.classList.add("grande"); ico.removeAttribute("title");
-      var tx = document.createElement("span"); tx.className = "perfil-rol-texto";
-      var n = document.createElement("span"); n.className = "perfil-rol-nombre"; n.textContent = t(r.nombre);
-      if (i === 0) { var m = document.createElement("span"); m.className = "perfil-rol-marca"; m.textContent = t("junto al nombre"); n.appendChild(m); }
-      var d = document.createElement("span"); d.className = "perfil-rol-desc"; d.textContent = t(r.desc);
-      tx.append(n, d); li.append(ico, tx); ul.appendChild(li);
+    fila.textContent = "";
+    caja.hidden = !roles.length;
+    roles.forEach(function (r) {
+      var a = document.createElement("a"); a.className = "perfil-rol-btn"; a.href = "roles.html#" + r.id;
+      a.setAttribute("data-tooltip", t(r.nombre)); a.setAttribute("aria-label", t(r.nombre)); a.setAttribute("role", "listitem");
+      var ico = A.iconoDeRol(r); ico.removeAttribute("title"); ico.removeAttribute("role"); ico.removeAttribute("aria-label");
+      a.appendChild(ico); fila.appendChild(a);
     });
   }
 
@@ -221,10 +215,6 @@
         if (A.refrescarNotificaciones) A.refrescarNotificaciones();   // el contador de la barra se actualiza al momento
       });
     }
-    $("perfil-roles-btn").addEventListener("click", function () {
-      var ul = $("perfil-roles-lista"), abrir = ul.hidden;
-      ul.hidden = !abrir; this.setAttribute("aria-expanded", String(abrir)); this.classList.toggle("abierto", abrir);
-    });
     $("perfil-desc-editar").addEventListener("click", function () { abrirEdicionDesc(true); });
     $("perfil-desc-agregar").addEventListener("click", function () { abrirEdicionDesc(true); });
     $("perfil-desc-cancelar").addEventListener("click", function () { abrirEdicionDesc(false); pintarDescripcion({ yo: true, descripcion: descActual }); });

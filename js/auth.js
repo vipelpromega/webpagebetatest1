@@ -475,13 +475,16 @@
   // «Mejor amigo»: dos personas doradas (relleno, como los iconos «llenos» de Windows 11)
   var DOS_PERSONAS_ORO = '<svg viewBox="0 0 24 24" aria-hidden="true"><g class="atras"><circle cx="17.2" cy="8.8" r="2.7"/><path d="M16.8 14.3c2.7.1 4.7 1.9 4.7 4.4 0 1-.7 1.8-1.7 1.8h-2.6c.3-.5.4-1 .4-1.6 0-1.8-.8-3.4-2.1-4.4.4-.1.8-.2 1.3-.2z"/></g><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19.1c0-2.7 2.2-4.8 4.9-4.8h3.2c2.7 0 4.9 2.1 4.9 4.8 0 .8-.6 1.4-1.4 1.4H3.9c-.8 0-1.4-.6-1.4-1.4z"/></svg>';
   // Roles (insignias) de la página. Junto al nombre se muestra el icono del rol con la prioridad MÁS BAJA (1 = la más alta).
-  // Los dos son un sello de verificado (círculo con dientes): el de Fundador lleva una estrella y el de Administrador una palomita.
+  // Los dos son un sello de verificado (círculo con dientes): el de Fundador lleva una palomita y el de Administrador una estrella.
   var DIENTES = 'M12.00 1.40 L15.41 3.78 L19.50 4.50 L20.22 8.59 L22.60 12.00 L20.22 15.41 L19.50 19.50 L15.41 20.22 L12.00 22.60 L8.59 20.22 L4.50 19.50 L3.78 15.41 L1.40 12.00 L3.78 8.59 L4.50 4.50 L8.59 3.78Z';
+  function defs(id, c1, c2) {
+    return '<defs><linearGradient id="grad-' + id + '" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="' + c1 + '"/><stop offset="1" stop-color="' + c2 + '"/></linearGradient></defs>';
+  }
   var ROLES = [
     { id: "fundador", prioridad: 1, nombre: "Fundador", desc: "Creó la página y es su fundador.",
-      svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="sello" d="' + DIENTES + '"/><path class="estrella" d="M12.00 7.30 L13.29 10.62 L16.85 10.82 L14.09 13.08 L15.00 16.53 L12.00 14.60 L9.00 16.53 L9.91 13.08 L7.15 10.82 L10.71 10.62Z"/></svg>' },
+      svg: '<svg viewBox="0 0 24 24" aria-hidden="true">' + defs("fundador", "#6fd0ff", "#1a5df0") + '<path class="sello" d="' + DIENTES + '"/><path class="palomita" d="M8 12.4l2.7 2.7L16.2 9.4"/></svg>' },
     { id: "admin", prioridad: 2, nombre: "Administrador", desc: "Administra la página principal.",
-      svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="sello" d="' + DIENTES + '"/><path class="palomita" d="M8 12.4l2.7 2.7L16.2 9.4"/></svg>' }
+      svg: '<svg viewBox="0 0 24 24" aria-hidden="true">' + defs("admin", "#d7a0ff", "#6c2fe6") + '<path class="sello" d="' + DIENTES + '"/><path class="estrella" d="M12.00 7.30 L13.29 10.62 L16.85 10.82 L14.09 13.08 L15.00 16.53 L12.00 14.60 L9.00 16.53 L9.91 13.08 L7.15 10.82 L10.71 10.62Z"/></svg>' }
   ];
   function tr_(x) { return window.I18n && window.I18n.t ? window.I18n.t(x) : x; }
   // Roles que tiene un usuario (objeto con las banderas fundador / admin), ordenados por prioridad
@@ -500,6 +503,7 @@
     return r ? iconoDeRol(r) : null;
   }
   function iconoAdmin() { return iconoDeRol(ROLES[1]); }
+  function todosRoles() { return ROLES.slice(); }
   function iconoMejor() {
     var e = document.createElement("span");
     e.className = "mejor-ico"; e.setAttribute("role", "img");
@@ -572,6 +576,7 @@
     iconoAdmin: iconoAdmin,
     iconoRol: iconoRol,
     rolesDe: rolesDe,
+    todosRoles: todosRoles,
     iconoDeRol: iconoDeRol,
     guardarDescripcion: guardarDescripcion,
     listaUsuarios: listaUsuarios,

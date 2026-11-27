@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://avdssotwcftjuggsvubd.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>Roles</title>
+  <script src="js/theme.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/fondo.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/fuerza.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/presencia.js"></script>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/auth.css">
+  <link rel="stylesheet" href="css/motion.css">
+  <link rel="stylesheet" href="css/fondos.css">
+  <link rel="stylesheet" href="css/tarjeta.css">
+  <link rel="stylesheet" href="css/perfil.css">
+  <link rel="stylesheet" href="css/roles.css">
+</head>
+<body>
+  <nav class="sidebar" aria-label="Navegación principal">
+    <button type="button" class="side-btn" id="sidebar-toggle" aria-label="Expandir barra" data-tooltip="Expandir barra" aria-expanded="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      <span class="label">Expandir</span>
+    </button>
+    <div class="side-divider" role="separator"></div>
+    <a class="side-btn" href="index.html" aria-label="Principal" data-tooltip="Principal">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
+      <span class="label">Principal</span>
+    </a>
+    <a class="side-btn" data-acceso="miembro" href="temporizador.html" aria-label="Temporizador" data-tooltip="Temporizador">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
+      <span class="label">Temporizador</span>
+    </a>
+    <a class="side-btn bottom" href="configuracion.html" aria-label="Configuración" data-tooltip="Configuración">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      <span class="label">Configuración</span>
+    </a>
+  </nav>
+
+  <div class="page">
+    <header>
+      <h1>Roles</h1>
+      <p>Insignias que acompañan el nombre de algunas cuentas</p>
+    </header>
+
+    <main>
+      <section class="card roles-pag">
+        <ul class="roles-pag-lista" id="roles-lista"></ul>
+        <p class="nota">Si una cuenta tiene varios roles, junto al nombre se muestra el de mayor prioridad (el número más bajo). En su perfil se ven todos.</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/roles.js"></script>
+  <script src="js/preferencias.js"></script>
+</body>
+</html>

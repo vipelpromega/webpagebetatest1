@@ -469,7 +469,10 @@ body.pagina-principal { --content-w: 1100px; }
 .rol-ico .estrella { fill: #fff; stroke: #fff; stroke-width: 1; stroke-linejoin: round; }
 .fundador-ico { color: #1d8cf8; }
 .admin-ico { color: #a259ff; }
-.u-nombre .rol-ico { margin-left: -2px; }   /* en la tarjeta Usuarios, pegado al nombre */
+.fundador-ico .sello { fill: url(#grad-fundador); stroke: url(#grad-fundador); }
+.admin-ico .sello { fill: url(#grad-admin); stroke: url(#grad-admin); }
+.u-nombre .rol-ico { margin-left: -2px; }
+.u-nombre .rol-ico svg { width: 14px; height: 14px; }   /* en la tarjeta Usuarios, pegado al nombre */
 .mejor-ico { display: inline-grid; place-items: center; flex-shrink: 0; color: #f2b01e; }
 .mejor-ico svg { display: block; width: 17px; height: 17px; fill: currentColor; stroke: none; filter: drop-shadow(0 0 .5px rgba(160, 100, 0, .55)); }
 .mejor-ico svg .atras { opacity: .62; }
