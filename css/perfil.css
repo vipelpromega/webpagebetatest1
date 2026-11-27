@@ -67,8 +67,13 @@
 
 /* Roles: fila de iconos con tooltip */
 .perfil-roles { margin-top: 12px; }
-.perfil-roles[hidden] { display: none; }
-.perfil-roles-fila { display: inline-flex; gap: 6px; }
+.perfil-roles[hidden] { display: none !important; }
+.perfil-roles { display: flex; align-items: center; gap: 6px; }
+.perfil-roles-fila { display: inline-flex; gap: 6px; animation: m-entra .22s ease both; }
+.perfil-roles-fila[hidden] { display: none; }
+.perfil-roles-btn { padding: 0; font: inherit; color: var(--text); cursor: pointer; }
+.perfil-roles-btn .roles-ico { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.perfil-roles-btn.abierto { background: var(--subtle-hover); }
 .perfil-rol-btn { position: relative; display: inline-grid; place-items: center; width: 34px; height: 30px; border-radius: 6px; border: 1px solid var(--border); background: var(--subtle); text-decoration: none; }
 .perfil-rol-btn:hover { background: var(--subtle-hover); }
 .perfil-rol-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

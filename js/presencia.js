@@ -5,7 +5,7 @@
   var KT = "presencia-pestanas", ID = Math.random().toString(36).slice(2);
   function activo() { return window.Auth && window.Auth.estado() === "usuario"; }
   function enviar() {
-    if (!activo() || document.hidden) return;
+    if (!activo()) return;   // también con la pestaña en segundo plano: cambiar de pestaña no te desconecta
     if (Date.now() - ultimo < 10000) return;
     ultimo = Date.now();
     window.Auth.latido();
@@ -15,7 +15,7 @@
   function guardarPestanas(o) { try { localStorage.setItem(KT, JSON.stringify(o)); } catch (e) { /* nada */ } }
   function marcar() {
     var o = leerPestanas(), ahora = Date.now();
-    Object.keys(o).forEach(function (k) { if (ahora - o[k] > 12000) delete o[k]; });
+    Object.keys(o).forEach(function (k) { if (ahora - o[k] > 90000) delete o[k]; });
     o[ID] = ahora; guardarPestanas(o);
   }
   var salio = false;
@@ -23,7 +23,7 @@
     if (salio || !activo()) return;
     var o = leerPestanas(), ahora = Date.now();
     delete o[ID]; guardarPestanas(o);
-    var otras = Object.keys(o).some(function (k) { return ahora - o[k] < 12000; });
+    var otras = Object.keys(o).some(function (k) { return ahora - o[k] < 90000; });
     if (otras) return;
     salio = true;
     window.Auth.desconectando();

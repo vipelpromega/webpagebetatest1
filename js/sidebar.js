@@ -28,6 +28,16 @@
       sync();
     });
 
+    // Clic fuera de la barra desplegada: se contrae
+    document.addEventListener("click", function (ev) {
+      if (!root.classList.contains("sb-open")) return;
+      var nav = document.querySelector(".sidebar");
+      if (nav && nav.contains(ev.target)) return;
+      root.classList.remove("sb-open");
+      try { localStorage.setItem(KEY, "0"); } catch (e) { /* sin almacenamiento */ }
+      sync();
+    });
+
     sync();
   });
 })();

@@ -57,7 +57,7 @@
           <div class="perfil-datos">
             <h2 id="perfil-nombre"></h2>
             <p class="perfil-usuario" id="perfil-usuario"></p>
-            <p class="perfil-estado" id="perfil-estado"></p>
+            <p class="perfil-estado" id="perfil-estado" hidden></p>
             <div class="perfil-seguim" id="perfil-seguim">
               <button type="button" class="perfil-stat" id="perfil-seguidores-btn" aria-haspopup="dialog">
                 <span class="perfil-stat-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M2.8 19.3v-.5a3.8 3.8 0 0 1 3.8-3.8h4.8a3.8 3.8 0 0 1 3.8 3.8v.5"/><path d="M15.6 5.1a3.1 3.1 0 0 1 0 5.8"/><path d="M18.2 15.2a3.6 3.6 0 0 1 3 3.6v.5"/></svg></span><b id="perfil-seguidores-n">0</b><span class="perfil-stat-txt" id="perfil-seguidores-t">seguidores</span>
@@ -93,7 +93,10 @@
           </form>
         </div>
         <div class="perfil-roles" id="perfil-roles" hidden>
-          <span class="perfil-roles-fila" id="perfil-roles-fila" role="list" aria-label="Roles"></span>
+          <button type="button" class="perfil-rol-btn perfil-roles-btn" id="perfil-roles-btn" aria-expanded="false" aria-controls="perfil-roles-fila" aria-label="Roles" data-tooltip="Roles">
+            <svg class="roles-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.4-2.9 8.2-7 10-4.1-1.8-7-5.6-7-10V6l7-3z"/><path d="M9 12l2.2 2.2L15.2 10"/></svg>
+          </button>
+          <span class="perfil-roles-fila" id="perfil-roles-fila" role="list" aria-label="Roles" hidden></span>
         </div>
         <dl class="perfil-extra" id="perfil-extra" hidden>
           <div><dt>Miembro desde</dt><dd id="perfil-desde"></dd></div>

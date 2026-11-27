@@ -11,8 +11,7 @@
     var tx = document.createElement("div"); tx.className = "roles-pag-texto";
     var n = document.createElement("h2"); n.textContent = t(r.nombre);
     var d = document.createElement("p"); d.textContent = t(r.desc);
-    var pr = document.createElement("span"); pr.className = "roles-pag-prio"; pr.textContent = t("Prioridad") + " " + r.prioridad;
-    tx.append(n, d, pr); li.append(ico, tx); ul.appendChild(li);
+    tx.append(n, d); li.append(ico, tx); ul.appendChild(li);
   });
   function resaltar() {
     var prev = ul.querySelector(".destacado"); if (prev) prev.classList.remove("destacado");

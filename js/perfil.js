@@ -87,7 +87,7 @@
     $("perfil-usuario").textContent = p.usuario ? "@" + p.usuario : "";
     var on = p.estado === "online";
     $("perfil-punto").hidden = !on;
-    var e = $("perfil-estado"); e.textContent = on ? t("En línea") : t("Desconectado"); e.classList.toggle("online", on);
+    var e = $("perfil-estado"); e.textContent = on ? t("En línea") : ""; e.hidden = !on; e.classList.toggle("online", on);
     document.title = p.nombre + " · " + t("Perfil");
     $("perfil-sub").textContent = p.yo ? t("Tu cuenta") : t("Información de la cuenta");
     var extra = $("perfil-extra");
@@ -110,6 +110,7 @@
     var roles = A.rolesDe ? A.rolesDe(p) : [];
     fila.textContent = "";
     caja.hidden = !roles.length;
+    if (!roles.length) { fila.hidden = true; $("perfil-roles-btn").setAttribute("aria-expanded", "false"); }
     roles.forEach(function (r) {
       var a = document.createElement("a"); a.className = "perfil-rol-btn"; a.href = "roles.html#" + r.id;
       a.setAttribute("data-tooltip", t(r.nombre)); a.setAttribute("aria-label", t(r.nombre)); a.setAttribute("role", "listitem");
@@ -192,7 +193,7 @@
       if (!x) { cargar(); return; }
       var on = x.estado === "online";
       $("perfil-punto").hidden = !on;
-      var e = $("perfil-estado"); e.textContent = on ? t("En línea") : t("Desconectado"); e.classList.toggle("online", on);
+      var e = $("perfil-estado"); e.textContent = on ? t("En línea") : ""; e.hidden = !on; e.classList.toggle("online", on);
     });
   }
   document.addEventListener("DOMContentLoaded", function () {
@@ -215,6 +216,10 @@
         if (A.refrescarNotificaciones) A.refrescarNotificaciones();   // el contador de la barra se actualiza al momento
       });
     }
+    $("perfil-roles-btn").addEventListener("click", function () {
+      var f = $("perfil-roles-fila"), abrir = f.hidden;
+      f.hidden = !abrir; this.setAttribute("aria-expanded", String(abrir)); this.classList.toggle("abierto", abrir);
+    });
     $("perfil-desc-editar").addEventListener("click", function () { abrirEdicionDesc(true); });
     $("perfil-desc-agregar").addEventListener("click", function () { abrirEdicionDesc(true); });
     $("perfil-desc-cancelar").addEventListener("click", function () { abrirEdicionDesc(false); pintarDescripcion({ yo: true, descripcion: descActual }); });

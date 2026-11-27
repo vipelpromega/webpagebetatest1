@@ -727,7 +727,7 @@ alter table public.usuarios add constraint usuarios_estado_manual_check check (e
 -- ¿Se considera en línea? Latido reciente, sin salida posterior y sin haber elegido «Desconectado»
 create or replace function privado.en_linea(p_visto timestamptz, p_saliendo timestamptz, p_estado text)
 returns boolean language sql stable set search_path = '' as $$
-  select coalesce(p_visto > now() - interval '45 seconds' and (p_saliendo is null or p_visto > p_saliendo) and p_estado <> 'desconectado', false)
+  select coalesce(p_visto > now() - interval '120 seconds' and (p_saliendo is null or p_visto > p_saliendo) and p_estado <> 'desconectado', false)
 $$;
 
 -- Latido: la página lo envía cada 20 s mientras está abierta y visible. Online = latido en los últimos 45 s.
