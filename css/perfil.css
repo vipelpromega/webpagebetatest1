@@ -69,10 +69,10 @@
 .perfil-roles { margin-top: 12px; }
 .perfil-roles[hidden] { display: none !important; }
 .perfil-roles { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.perfil-roles-fila { display: flex; flex-wrap: wrap; gap: 12px; padding: 14px 16px; min-width: 120px; max-width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 12px; background: var(--subtle); box-shadow: inset 0 1px 0 rgba(255,255,255,.04); animation: m-entra .22s ease both; }
-.perfil-roles-fila .perfil-rol-btn { width: 48px; height: 48px; border-radius: 10px; background: var(--card, var(--bg)); transition: transform .12s ease, background .12s ease; }
+.perfil-roles-fila { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 8px; min-width: 0; max-width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 12px; background: var(--subtle); box-shadow: inset 0 1px 0 rgba(255,255,255,.04); animation: m-entra .22s ease both; }
+.perfil-roles-fila .perfil-rol-btn { width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; transition: transform .12s ease, background .12s ease; }
 .perfil-roles-fila .perfil-rol-btn:hover { transform: translateY(-2px); background: var(--subtle-hover); }
-.perfil-roles-fila .perfil-rol-btn .rol-ico svg { width: 30px; height: 30px; }
+.perfil-roles-fila .perfil-rol-btn .rol-ico svg { width: 22px; height: 22px; }
 .perfil-roles-fila[hidden] { display: none; }
 .perfil-roles-btn { padding: 0; font: inherit; color: var(--text); cursor: pointer; }
 .perfil-roles-btn .roles-ico { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
