@@ -218,7 +218,8 @@
     document.addEventListener("DOMContentLoaded", function () {
       var st = window.Auth.estado();
       if (!st) return;
-      cargar();
+      var primera = window.Auth.latido ? window.Auth.latido() : null;   // así tu propio estado ya cuenta como «en línea» al pintar
+      (primera && primera.then ? primera.then(cargar, cargar) : cargar());
       temporizador = setInterval(refrescar, 2000);
       window.addEventListener("storage", function (e) { if (e.key === "vis-cambio") refrescar(); });
       document.addEventListener("visibilitychange", function () { if (!document.hidden) refrescar(); });

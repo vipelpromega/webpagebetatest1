@@ -198,6 +198,7 @@
   }
   document.addEventListener("DOMContentLoaded", function () {
     if (!A.estado()) return;
+    var primeraCarga = A.estado() === "usuario" && A.latido ? A.latido() : null;
     $("perfil-seguidores-btn").addEventListener("click", function () { abrirLista("seguidores"); });
     $("perfil-siguiendo-btn").addEventListener("click", function () { abrirLista("siguiendo"); });
     $("perfil-amigos-btn").addEventListener("click", function () { abrirLista("amigos"); });
@@ -249,7 +250,7 @@
         cargar(); // actualiza botón, contadores y estado
       });
     }); // sin sesión ni modo invitado se muestra el acceso
-    cargar();
+    if (primeraCarga && primeraCarga.then) primeraCarga.then(cargar, cargar); else cargar();
     setInterval(refrescarEstado, 2000);
     // Solicitudes aceptadas, rechazadas o recibidas: el perfil se actualiza solo
     window.addEventListener("notif-cambio", function () { if (!ocupado) cargar(); });

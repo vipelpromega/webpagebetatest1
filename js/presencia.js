@@ -18,8 +18,15 @@
     Object.keys(o).forEach(function (k) { if (ahora - o[k] > 90000) delete o[k]; });
     o[ID] = ahora; guardarPestanas(o);
   }
+  // Navegar dentro del sitio no es «cerrar la página»: no se avisa de desconexión
+  var navInterna = false;
+  document.addEventListener("click", function (ev) {
+    var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
+    if (a && a.origin === location.origin && !a.target) navInterna = true;
+  }, true);
   var salio = false;
   function saliendo() {
+    if (navInterna) { navInterna = false; return; }
     if (salio || !activo()) return;
     var o = leerPestanas(), ahora = Date.now();
     delete o[ID]; guardarPestanas(o);
