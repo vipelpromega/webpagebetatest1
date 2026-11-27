@@ -846,6 +846,60 @@ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Roles editables desde el panel de administración.
+-- «fundador» y «admin» son roles del sistema (su asignación sigue en usuarios.es_fundador / es_admin_web);
+-- los demás se asignan en usuario_roles. El aspecto (forma, símbolo, colores) son valores de una lista fija.
+-- ---------------------------------------------------------------------------
+create table if not exists public.roles (
+  id          text primary key check (id ~ '^[a-z0-9_-]{2,24}$'),
+  nombre      text not null check (char_length(btrim(nombre)) between 1 and 30),
+  descripcion text not null default '' check (char_length(descripcion) <= 200),
+  prioridad   int  not null default 100 check (prioridad between 1 and 999),
+  forma       text not null default 'dentado' check (forma in ('ninguna','dentado','circulo','cuadrado','triangulo','rombo','hexagono','escudo','estrella')),
+  simbolo     text not null default 'palomita' check (simbolo in ('ninguno','palomita','estrella','corazon','rayo','corona','llama','cruz','punto')),
+  color1      text not null default '#1d8cf8' check (color1 ~ '^#[0-9a-fA-F]{6}$'),
+  color2      text check (color2 is null or color2 ~ '^#[0-9a-fA-F]{6}$'),
+  sistema     boolean not null default false,
+  creado      timestamptz not null default now()
+);
+create unique index if not exists roles_nombre_un on public.roles (lower(btrim(nombre)));
+create table if not exists public.usuario_roles (
+  usuario_id uuid not null references public.usuarios(id) on delete cascade,
+  rol_id     text not null references public.roles(id) on delete cascade,
+  creado     timestamptz not null default now(),
+  primary key (usuario_id, rol_id)
+);
+alter table public.roles         enable row level security;
+alter table public.usuario_roles enable row level security;
+revoke all on table public.roles, public.usuario_roles from public, anon, authenticated;
+insert into public.roles (id, nombre, descripcion, prioridad, forma, simbolo, color1, color2, sistema) values
+  ('fundador', 'Fundador', 'Creó la página y es su fundador.', 1, 'dentado', 'palomita', '#6fd0ff', '#1a5df0', true),
+  ('admin', 'Administrador', 'Administra la página principal.', 2, 'dentado', 'estrella', '#d7a0ff', '#6c2fe6', true)
+on conflict (id) do nothing;
+
+-- Roles de una cuenta (ordenados por prioridad: el primero es el que se ve junto al nombre)
+create or replace function privado.roles_de(p_uid uuid)
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'nombre', r.nombre, 'descripcion', r.descripcion,
+           'prioridad', r.prioridad, 'forma', r.forma, 'simbolo', r.simbolo, 'c1', r.color1, 'c2', r.color2)
+           order by r.prioridad, r.id), '[]'::jsonb)
+    from public.roles r
+   where p_uid is not null and (
+         (r.id = 'fundador' and exists (select 1 from public.usuarios u where u.id = p_uid and u.es_fundador))
+      or (r.id = 'admin'    and exists (select 1 from public.usuarios u where u.id = p_uid and u.es_admin_web))
+      or exists (select 1 from public.usuario_roles ur where ur.usuario_id = p_uid and ur.rol_id = r.id));
+$$;
+revoke all on function privado.roles_de(uuid) from public, anon, authenticated;
+
+-- Lista pública de roles (para la página «Roles»)
+create or replace function public.lista_roles()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('ok', true, 'roles', coalesce((select jsonb_agg(jsonb_build_object('id', r.id, 'nombre', r.nombre,
+           'descripcion', r.descripcion, 'prioridad', r.prioridad, 'forma', r.forma, 'simbolo', r.simbolo, 'c1', r.color1, 'c2', r.color2)
+           order by r.prioridad, r.id) from public.roles r), '[]'::jsonb));
+$$;
+
 -- Amistades: son de dos sentidos. Cuando alguien acepta una solicitud se guardan las dos filas
 -- (usuario→amigo y amigo→usuario), así «los amigos de X» sigue siendo «las filas donde usuario = X».
 -- «mejor»: ambos son mejores amigos (también de dos sentidos; se activa en las dos filas al aceptar).
@@ -1151,7 +1205,7 @@ begin
   return jsonb_build_object('ok', true, 'total', v_cant -> 'total', 'firma', v_cant -> 'firma',
     'items', coalesce((
       select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
-                                          'tipo', n.tipo, 'creado', n.creado, 'admin', x.es_admin_web, 'fundador', x.es_fundador) order by n.creado desc, x.id)
+                                          'tipo', n.tipo, 'creado', n.creado, 'admin', x.es_admin_web, 'fundador', x.es_fundador, 'roles', privado.roles_de(x.id)) order by n.creado desc, x.id)
         from (select * from (
                 select s.de as quien, s.tipo, s.creado from public.solicitudes_amistad s where s.para = v.id
                 union all
@@ -1210,14 +1264,14 @@ begin
   if p_tipo = 'amigos' then
     return jsonb_build_object('ok', true, 'tipo', p_tipo, 'usuarios', coalesce((
       select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
-                       'admin', x.es_admin_web, 'fundador', x.es_fundador, 'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
+                       'admin', x.es_admin_web, 'fundador', x.es_fundador, 'roles', privado.roles_de(x.id), 'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
                        order by a.creado desc, x.id)
         from public.amistades a join public.usuarios x on x.id = a.amigo
        where a.usuario = u.id and not x.suspendida), '[]'::jsonb));
   end if;
   return jsonb_build_object('ok', true, 'tipo', p_tipo, 'usuarios', coalesce((
     select jsonb_agg(jsonb_build_object('id', x.id, 'nombre', x.nombre, 'avatar', x.avatar, 'usuario', x.usuario,
-                     'admin', x.es_admin_web, 'fundador', x.es_fundador, 'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
+                     'admin', x.es_admin_web, 'fundador', x.es_fundador, 'roles', privado.roles_de(x.id), 'mejor', exists (select 1 from public.amistades m where m.usuario = v.id and m.amigo = x.id and m.mejor))
                      order by s.creado desc, x.id)
       from public.seguimientos s
       join public.usuarios x on x.id = case when p_tipo = 'seguidores' then s.seguidor else s.seguido end
@@ -1272,6 +1326,7 @@ begin
       'amigos', (select count(*) from public.amistades a join public.usuarios x on x.id = a.amigo where a.usuario = u.id and not x.suspendida),
       'admin', u.es_admin_web,
       'fundador', u.es_fundador,
+      'roles', privado.roles_de(u.id),
       'descripcion', u.descripcion,
       'ver_seguim', privado.ve_seguim(u.id, u.visibilidades_seguim, v.id),
       'amigo', v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id),
@@ -1314,6 +1369,7 @@ begin
              (v_miembro and u.id = v.id) as yo,
              u.es_admin_web as admin,
              u.es_fundador as fundador,
+             privado.roles_de(u.id) as roles,
              (v_miembro and exists (select 1 from public.amistades a where a.usuario = v.id and a.amigo = u.id and a.mejor)) as mejor
         from public.usuarios u
        where not u.suspendida
@@ -1482,7 +1538,8 @@ begin
              case when c.usado_en is not null then 'usada' else 'sin_usar' end as estado,
              c.creado, c.usado_en, c.creado_por_email, coalesce(u.suspendida, false) as suspendida,
              coalesce(u.es_admin_web, false) as admin_web,
-             coalesce(u.es_fundador, false) as fundador
+             coalesce(u.es_fundador, false) as fundador,
+             privado.roles_de(u.id) as roles
         from public.codigos c
         left join public.usuarios u on u.id = c.usado_por
        order by c.creado desc
@@ -1560,7 +1617,7 @@ begin
     'estado', case when v.usado_en is not null then 'usada' else 'sin_usar' end,
     'creado', v.creado, 'usado_en', v.usado_en, 'creado_por_email', v.creado_por_email,
     'cuenta', case when u.id is null then null
-                   else jsonb_build_object('usuario', u.usuario, 'nombre', u.nombre, 'avatar', u.avatar, 'suspendida', u.suspendida, 'suspendida_en', u.suspendida_en, 'admin_web', u.es_admin_web, 'fundador', u.es_fundador,
+                   else jsonb_build_object('usuario', u.usuario, 'nombre', u.nombre, 'avatar', u.avatar, 'suspendida', u.suspendida, 'suspendida_en', u.suspendida_en, 'admin_web', u.es_admin_web, 'fundador', u.es_fundador, 'roles', privado.roles_de(u.id),
       'pais_registro', (select h.pais from public.historial h where h.usuario_id = u.id and h.evento = 'registro' order by h.fecha limit 1),
       'paises', coalesce((select jsonb_agg(x.p order by x.n desc, x.p) from (
           select coalesce(upper(h.pais), '??') as p, count(*) as n from public.historial h
@@ -1665,6 +1722,129 @@ begin
   perform privado.auditar(v_admin, case when coalesce(p_valor, false) then 'asignar_admin_web' else 'quitar_admin_web' end,
     jsonb_build_object('usuario', v_user));
   return jsonb_build_object('ok', true, 'admin_web', coalesce(p_valor, false));
+end $$;
+
+-- Roles (panel de administración). Todo lo que cambia roles exige la contraseña maestra y queda auditado.
+create or replace function public.admin_listar_roles()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+begin
+  if privado.admin_id() is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  return jsonb_build_object('ok', true, 'roles', coalesce((select jsonb_agg(jsonb_build_object('id', r.id, 'nombre', r.nombre,
+    'descripcion', r.descripcion, 'prioridad', r.prioridad, 'forma', r.forma, 'simbolo', r.simbolo, 'c1', r.color1, 'c2', r.color2,
+    'sistema', r.sistema,
+    'usuarios', case r.id when 'fundador' then (select count(*) from public.usuarios where es_fundador)
+                          when 'admin' then (select count(*) from public.usuarios where es_admin_web)
+                          else (select count(*) from public.usuario_roles ur where ur.rol_id = r.id) end)
+    order by r.prioridad, r.id) from public.roles r), '[]'::jsonb));
+end $$;
+
+-- Crear (p_id nulo) o editar un rol
+create or replace function public.admin_guardar_rol(p_id text, p_nombre text, p_descripcion text, p_prioridad int,
+  p_forma text, p_simbolo text, p_c1 text, p_c2 text, p_maestra text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_admin uuid := privado.admin_id();
+  v_err   jsonb;
+  v_id    text := nullif(btrim(coalesce(p_id, '')), '');
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  v_err := privado.verificar_maestra(v_admin, p_maestra);
+  if v_err is not null then
+    return v_err;
+  end if;
+  if v_id is null then
+    if (select count(*) from public.roles) >= 40 then
+      return jsonb_build_object('ok', false, 'error', 'demasiados_roles');
+    end if;
+    v_id := 'r' || substr(md5(random()::text || clock_timestamp()::text), 1, 10);
+    insert into public.roles (id, nombre, descripcion, prioridad, forma, simbolo, color1, color2)
+    values (v_id, btrim(coalesce(p_nombre, '')), btrim(coalesce(p_descripcion, '')), coalesce(p_prioridad, 100),
+            coalesce(p_forma, 'dentado'), coalesce(p_simbolo, 'palomita'), coalesce(p_c1, '#1d8cf8'), nullif(p_c2, ''));
+    perform privado.auditar(v_admin, 'crear_rol', jsonb_build_object('rol', btrim(p_nombre)));
+  else
+    update public.roles set nombre = btrim(coalesce(p_nombre, '')), descripcion = btrim(coalesce(p_descripcion, '')),
+           prioridad = coalesce(p_prioridad, 100), forma = coalesce(p_forma, 'dentado'), simbolo = coalesce(p_simbolo, 'palomita'),
+           color1 = coalesce(p_c1, '#1d8cf8'), color2 = nullif(p_c2, '')
+     where id = v_id;
+    if not found then
+      return jsonb_build_object('ok', false, 'error', 'no_existe');
+    end if;
+    perform privado.auditar(v_admin, 'editar_rol', jsonb_build_object('rol', btrim(p_nombre)));
+  end if;
+  return jsonb_build_object('ok', true, 'id', v_id);
+exception
+  when unique_violation then return jsonb_build_object('ok', false, 'error', 'rol_repetido');
+  when check_violation then return jsonb_build_object('ok', false, 'error', 'rol_invalido');
+end $$;
+
+create or replace function public.admin_borrar_rol(p_id text, p_maestra text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_admin uuid := privado.admin_id();
+  v_err   jsonb;
+  v_nom   text;
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  v_err := privado.verificar_maestra(v_admin, p_maestra);
+  if v_err is not null then
+    return v_err;
+  end if;
+  if exists (select 1 from public.roles where id = p_id and sistema) then
+    return jsonb_build_object('ok', false, 'error', 'rol_sistema');
+  end if;
+  delete from public.roles where id = p_id returning nombre into v_nom;
+  if v_nom is null then
+    return jsonb_build_object('ok', false, 'error', 'no_existe');
+  end if;
+  perform privado.auditar(v_admin, 'borrar_rol', jsonb_build_object('rol', v_nom));
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- Dar o quitar un rol a la cuenta de una clave. «fundador» solo se asigna desde la consola.
+create or replace function public.admin_asignar_rol(p_id uuid, p_rol text, p_valor boolean, p_maestra text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_admin uuid := privado.admin_id();
+  v_err   jsonb;
+  v_uid   uuid;
+  v_user  text;
+  v_nom   text;
+begin
+  if v_admin is null then
+    return jsonb_build_object('ok', false, 'error', 'no_autorizado');
+  end if;
+  v_err := privado.verificar_maestra(v_admin, p_maestra);
+  if v_err is not null then
+    return v_err;
+  end if;
+  select nombre into v_nom from public.roles where id = p_rol;
+  if v_nom is null then
+    return jsonb_build_object('ok', false, 'error', 'no_existe');
+  end if;
+  if p_rol = 'fundador' then
+    return jsonb_build_object('ok', false, 'error', 'solo_consola');
+  end if;
+  select c.usado_por into v_uid from public.codigos c where c.id = p_id;
+  if v_uid is null then
+    return jsonb_build_object('ok', false, 'error', 'sin_cuenta');
+  end if;
+  select usuario into v_user from public.usuarios where id = v_uid;
+  if p_rol = 'admin' then
+    update public.usuarios set es_admin_web = coalesce(p_valor, false) where id = v_uid;
+  elsif coalesce(p_valor, false) then
+    insert into public.usuario_roles (usuario_id, rol_id) values (v_uid, p_rol) on conflict do nothing;
+  else
+    delete from public.usuario_roles where usuario_id = v_uid and rol_id = p_rol;
+  end if;
+  perform privado.auditar(v_admin, case when coalesce(p_valor, false) then 'asignar_rol' else 'quitar_rol' end,
+    jsonb_build_object('usuario', v_user, 'rol', v_nom));
+  return jsonb_build_object('ok', true, 'roles', privado.roles_de(v_uid));
 end $$;
 
 -- Registros de perfiles: lo que hace cada cuenta (ingresos, cambios, cierres), con país y hora
@@ -1982,6 +2162,11 @@ revoke all on function public.admin_registros_perfiles(int, bigint) from public,
 revoke all on function public.admin_borrar_registros_perfiles(bigint[], boolean, text) from public, anon, authenticated;
 revoke all on function public.admin_suspender_cuenta(uuid, boolean, text) from public, anon, authenticated;
 revoke all on function public.admin_asignar_admin_web(uuid, boolean, text) from public, anon, authenticated;
+revoke all on function public.admin_listar_roles() from public, anon, authenticated;
+revoke all on function public.admin_guardar_rol(text, text, text, int, text, text, text, text, text) from public, anon, authenticated;
+revoke all on function public.admin_borrar_rol(text, text) from public, anon, authenticated;
+revoke all on function public.admin_asignar_rol(uuid, text, boolean, text) from public, anon, authenticated;
+revoke all on function public.lista_roles() from public, anon, authenticated;
 revoke all on function public.admin_graficas()                      from public, anon, authenticated;
 revoke all on function public.cerrar_sesion(text, uuid)            from public, anon, authenticated;
 revoke all on function public.cerrar_otras_sesiones(text)          from public, anon, authenticated;
@@ -2043,6 +2228,11 @@ grant execute on function public.cambiar_clave(text, text, text)   to anon, auth
 grant execute on function public.admin_registros(int)              to authenticated;
 grant execute on function public.admin_suspender_cuenta(uuid, boolean, text) to authenticated;
 grant execute on function public.admin_asignar_admin_web(uuid, boolean, text) to authenticated;
+grant execute on function public.admin_listar_roles() to authenticated;
+grant execute on function public.admin_guardar_rol(text, text, text, int, text, text, text, text, text) to authenticated;
+grant execute on function public.admin_borrar_rol(text, text) to authenticated;
+grant execute on function public.admin_asignar_rol(uuid, text, boolean, text) to authenticated;
+grant execute on function public.lista_roles() to anon, authenticated;
 grant execute on function public.admin_graficas()                   to authenticated;
 grant execute on function public.admin_paises()                    to authenticated;
 grant execute on function public.admin_registros_perfiles(int, bigint) to authenticated;

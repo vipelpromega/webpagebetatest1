@@ -461,16 +461,9 @@ body.pagina-principal { --content-w: 1100px; }
 .u-datos { display: flex; flex-direction: column; min-width: 0; }
 .u-nombre { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 14px; color: var(--text); }
 .u-nombre-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Roles de la página: sello de verificado (círculo con dientes). Fundador = azul con estrella; Administrador = violeta con palomita */
+/* Roles de la página: el dibujo (forma, símbolo, colores) lo genera auth.js desde la tabla de roles */
 .rol-ico { display: inline-grid; place-items: center; flex-shrink: 0; margin-left: 5px; vertical-align: -3px; }
 .rol-ico svg { display: block; width: 17px; height: 17px; }
-.rol-ico .sello { fill: currentColor; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
-.rol-ico .palomita { fill: none; stroke: #fff; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
-.rol-ico .estrella { fill: #fff; stroke: #fff; stroke-width: 1; stroke-linejoin: round; }
-.fundador-ico { color: #1d8cf8; }
-.admin-ico { color: #a259ff; }
-.fundador-ico .sello { fill: url(#grad-fundador); stroke: url(#grad-fundador); }
-.admin-ico .sello { fill: url(#grad-admin); stroke: url(#grad-admin); }
 .u-nombre .rol-ico { margin-left: -2px; }
 .u-nombre .rol-ico svg { width: 14px; height: 14px; }   /* en la tarjeta Usuarios, pegado al nombre */
 .mejor-ico { display: inline-grid; place-items: center; flex-shrink: 0; color: #f2b01e; }

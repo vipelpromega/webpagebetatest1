@@ -3,7 +3,7 @@
 -- OJO: también borra la contraseña maestra (hay que volver a fijarla).
 -- Después ejecuta schema.sql para volver a crear todo.
 drop table if exists public.solicitudes_intentos, public.solicitudes_amistad, public.amistades, public.seguimientos, public.codigos, public.sesiones, public.usuarios, public.historial,
-                     public.intentos, public.auditoria cascade;
+                     public.intentos, public.auditoria, public.usuario_roles, public.roles cascade;
 drop schema if exists privado cascade;
 
 drop function if exists public.verificar_codigo(text);
@@ -17,6 +17,11 @@ drop function if exists public.salir(text);
 drop function if exists public.mis_sesiones(text);
 drop function if exists public.mi_historial(text);
 drop function if exists public.guardar_descripcion(text, text);
+drop function if exists public.lista_roles();
+drop function if exists public.admin_listar_roles();
+drop function if exists public.admin_guardar_rol(text, text, text, int, text, text, text, text, text);
+drop function if exists public.admin_borrar_rol(text, text);
+drop function if exists public.admin_asignar_rol(uuid, text, boolean, text);
 drop function if exists public.mis_preferencias(text);
 drop function if exists public.guardar_preferencias(text, jsonb);
 drop function if exists public.admin_paises();
