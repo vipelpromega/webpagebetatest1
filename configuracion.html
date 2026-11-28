@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://avdssotwcftjuggsvubd.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://avdssotwcftjuggsvubd.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
   <title>Configuración</title>
   <script src="js/theme.js"></script>
   <script src="js/i18n.js"></script>
@@ -82,7 +82,7 @@
             <div class="vis-despl" id="acento-cuerpo" role="region" aria-labelledby="acento-cab" inert>
               <div class="vis-despl-int">
                 <div class="vis-cuerpo">
-                <div class="plegable-acciones"><button type="button" class="btn secondary" id="acento-reset">Restablecer</button></div>
+                <div class="plegable-acciones"><button type="button" class="btn secondary btn-i" id="acento-reset" data-tooltip="Restablecer" aria-label="Restablecer"><span class="btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></span><span class="btn-txt">Restablecer</span></button></div>
 <div class="acento-cuerpo">
               <div class="acento-sub">Recomendados</div>
               <div class="muestras" id="acento-recom" role="group" aria-label="Recomendados"></div>
@@ -92,8 +92,8 @@
                   <button type="button" class="seg" data-acento-tipo="solido" aria-pressed="false">Sólido</button>
                   <button type="button" class="seg" data-acento-tipo="degradado" aria-pressed="false">Degradado</button>
                 </div>
-                <label class="color-campo"><span>Primer color</span><input type="color" id="acento-c1" value="#0078d4"></label>
-                <label class="color-campo" id="acento-c2-caja"><span>Segundo color</span><input type="color" id="acento-c2" value="#00b7c3"></label>
+                <label class="color-campo"><span>Primer color</span><span id="acento-c1-sel"></span></label>
+                <label class="color-campo" id="acento-c2-caja"><span>Segundo color</span><span id="acento-c2-sel"></span></label>
                 <span class="desplegable" id="acento-ang"><select id="acento-ang-select" aria-label="Dirección del degradado">
                   <option value="90">→ Hacia la derecha</option>
                   <option value="135">↘ Diagonal descendente</option>
@@ -120,7 +120,7 @@
 <div class="fondo-cuerpo">
               <div class="fondos" id="fondos" role="group" aria-label="Fondos"></div>
               <div class="fondo-acciones">
-                <button type="button" class="btn secondary" id="fondo-subir">Elegir imagen…</button>
+                <button type="button" class="btn secondary btn-i" id="fondo-subir" data-tooltip="Elegir imagen…" aria-label="Elegir imagen…"><span class="btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-9 9"/></svg></span><span class="btn-txt">Elegir imagen…</span></button>
                 <input type="file" id="fondo-archivo" accept="image/png,image/jpeg,image/webp" hidden>
                 <p class="nota">La imagen se guarda solo en este dispositivo; el resto de fondos viaja con tu cuenta.</p>
               </div>
@@ -194,7 +194,7 @@
                 <p class="f-error" id="cuenta-msg" role="status"></p>
               </div>
               <div class="setting-control">
-                <button class="btn" id="nombre-abrir" type="button" aria-haspopup="dialog">Cambiar nombre</button>
+                <button class="btn btn-i" id="nombre-abrir" type="button" aria-haspopup="dialog" data-tooltip="Cambiar nombre" aria-label="Cambiar nombre"><span class="btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M13.5 8.5l3 3"/></svg></span><span class="btn-txt">Cambiar nombre</span></button>
               </div>
             </div>
 
@@ -206,7 +206,7 @@
                 <p class="f-error" id="clave-msg" role="status"></p>
               </div>
               <div class="setting-control">
-                <button class="btn" id="clave-abrir" type="button" aria-haspopup="dialog">Cambiar contraseña</button>
+                <button class="btn btn-i" id="clave-abrir" type="button" aria-haspopup="dialog" data-tooltip="Cambiar contraseña" aria-label="Cambiar contraseña"><span class="btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9"/><path d="M16 7l3 3"/></svg></span><span class="btn-txt">Cambiar contraseña</span></button>
               </div>
             </div>
 
@@ -226,7 +226,7 @@
               </div>
               <p class="f-error" id="clave-form-msg" role="alert"></p>
               <div class="clave-botones">
-                <button class="btn" id="clave-guardar" type="submit">Guardar contraseña</button>
+                <button class="btn btn-i" id="clave-guardar" type="submit" data-tooltip="Guardar contraseña" aria-label="Guardar contraseña"><span class="btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="btn-txt">Guardar contraseña</span></button>
                 <button class="btn secondary" id="clave-cancelar" type="button">Cancelar</button>
               </div>
             </form>
@@ -241,8 +241,8 @@
               <div class="vis-despl-int">
                 <div class="vis-cuerpo">
                 <div class="plegable-acciones">
-                  <button class="btn secondary" id="sesiones-actualizar" type="button">Actualizar</button>
-                  <button class="btn secondary" id="sesiones-otras" type="button" hidden>Cerrar las demás</button>
+                  <button class="btn secondary btn-i" id="sesiones-actualizar" type="button" data-tooltip="Actualizar" aria-label="Actualizar"><span class="btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></span><span class="btn-txt">Actualizar</span></button>
+                  <button class="btn secondary btn-i" id="sesiones-otras" type="button" hidden data-tooltip="Cerrar las demás sesiones" aria-label="Cerrar las demás sesiones"><span class="btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg></span><span class="btn-txt">Cerrar las demás</span></button>
                 </div>
                 <p class="f-error" id="sesiones-msg" role="status"></p>
                 <ul class="sesiones" id="sesiones-lista"></ul>
@@ -258,7 +258,7 @@
                 <div class="setting-desc">Volverás a la pantalla de acceso</div>
               </div>
               <div class="setting-control">
-                <button class="btn secondary" id="cerrar-sesion" type="button">Cerrar sesión</button>
+                <button class="btn secondary btn-i" id="cerrar-sesion" type="button" data-tooltip="Cerrar sesión" aria-label="Cerrar sesión"><span class="btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></span><span class="btn-txt">Cerrar sesión</span></button>
               </div>
             </div>
           </div>
@@ -271,7 +271,7 @@
                 <div class="setting-desc">Algunas secciones están limitadas</div>
               </div>
               <div class="setting-control">
-                <button class="btn" id="ir-registro" type="button">Registrarse o iniciar sesión</button>
+                <button class="btn btn-i" id="ir-registro" type="button" data-tooltip="Registrarse o iniciar sesión" aria-label="Registrarse o iniciar sesión"><span class="btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg></span><span class="btn-txt">Registrarse o iniciar sesión</span></button>
               </div>
             </div>
           </div>
@@ -347,6 +347,7 @@
   <script src="js/preferencias.js"></script>
   <script src="js/tarjeta.js"></script>
   <script src="js/desplegable.js"></script>
+  <script src="js/selector-color.js"></script>
   <script src="js/configuracion.js"></script>
 </body>
 </html>

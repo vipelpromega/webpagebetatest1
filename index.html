@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://avdssotwcftjuggsvubd.supabase.co https://api.open-meteo.com https://geocoding-api.open-meteo.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://avdssotwcftjuggsvubd.supabase.co https://api.open-meteo.com https://geocoding-api.open-meteo.com; base-uri 'none'; form-action 'none'; object-src 'none'">
   <title>Principal</title>
   <script src="js/theme.js"></script>
   <script src="js/i18n.js"></script>
@@ -71,7 +71,7 @@
           <form class="clima-buscar" id="clima-form" novalidate autocomplete="off">
             <div class="f-box"><input class="f-input" id="clima-ciudad" type="text" maxlength="60" placeholder="Busca una ciudad" aria-label="Ciudad"></div>
             <button class="btn" type="submit">Buscar</button>
-            <button class="btn secondary" type="button" id="clima-gps">Usar mi ubicación</button>
+            <button class="btn secondary btn-i" type="button" id="clima-gps" data-tooltip="Usar mi ubicación" aria-label="Usar mi ubicación"><span class="btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><span class="btn-txt">Usar mi ubicación</span></button>
           </form>
           <p class="f-error" id="clima-msg" role="status"></p>
           <div class="clima" id="clima" hidden>

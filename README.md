@@ -122,3 +122,6 @@ Las tarjetas de Visibilidad solo tienen una flecha a un lado, se despliegan con 
 **Descripción:** cada usuario puede añadir o editar una descripción (hasta 300 caracteres) en su perfil; todos la ven. Función `guardar_descripcion`.
 
 **Roles editables:** los roles viven en la tabla `roles` (asignación en `usuario_roles`; Fundador y Administrador son roles del sistema). Se crean, editan, borran y asignan desde el panel de administración (sección *Roles* y detalle de cada cuenta en *Perfiles*, con contraseña maestra). Cada rol tiene nombre, descripción, prioridad, forma (dentado, círculo, cuadrado, triángulo, rombo, hexágono, escudo, estrella o sin forma), símbolo (palomita, estrella, corazón, rayo, corona, llama, cruz, punto o ninguno) y color sólido o degradado. El aspecto solo admite esos valores fijos y colores `#rrggbb`. Hay que volver a ejecutar `supabase/schema.sql`.
+
+## Prototipo de interfaz
+Fuente Nunito (carpeta `fonts/`), animaciones de entrada/salida de tarjetas y cambio de página, selector de color propio (`js/selector-color.js`) y botones largos como iconos con tooltip. Para volver al estado anterior: rama `antes-prototipo`.

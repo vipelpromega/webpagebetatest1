@@ -120,3 +120,26 @@ progress { transition: none; }
     transition-duration: .01ms !important; scroll-behavior: auto !important;
   }
 }
+
+/* ---------- Animaciones mejoradas (prototipo) ---------- */
+:root { --ease-in-out: cubic-bezier(.65, 0, .35, 1); --ease-in: cubic-bezier(.5, 0, .9, .4); }
+@keyframes m-ventana   { from { opacity: 0; transform: translateY(18px) scale(.94); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
+@keyframes m-ventana-sale { to { opacity: 0; transform: translateY(10px) scale(.96); } }
+@keyframes m-fondo-sale { to { opacity: 0; } }
+.tarjeta-flotante, .modal { animation: m-ventana .42s var(--ease-out) both; }
+.tarjeta-fondo, .modal-fondo { animation: m-fundido .28s ease both; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.tarjeta-fondo.saliendo, .modal-fondo.saliendo { animation: m-fondo-sale .24s ease both; pointer-events: none; }
+.tarjeta-fondo.saliendo .tarjeta-flotante, .modal-fondo.saliendo .modal { animation: m-ventana-sale .24s var(--ease-in) both; }
+/* Cambio de página: la vieja se desvanece y se aleja un poco; la nueva entra con suavidad */
+::view-transition-old(root) { animation: .26s var(--ease-in) both m-pag-sale; }
+::view-transition-new(root) { animation: .5s var(--ease-out) .06s both m-pag-entra; }
+@keyframes m-pag-sale  { to { opacity: 0; transform: translateY(-8px) scale(.995); } }
+@keyframes m-pag-entra { from { opacity: 0; transform: translateY(16px) scale(.995); } }
+/* Aparición de contenido más ágil y escalonada */
+.page main > :nth-child(n+2) { animation-duration: .6s; }
+/* Pulsar y soltar con un rebote suave */
+.btn:active, .gate-btn:active { transform: scale(.96); transition-duration: .06s; }
+.btn:not(:active) { transition: background .12s linear, transform .35s var(--ease-spring, var(--ease-out)), box-shadow .2s; }
+@media (prefers-reduced-motion: reduce) {
+  .tarjeta-fondo.saliendo, .modal-fondo.saliendo, .tarjeta-fondo.saliendo .tarjeta-flotante, .modal-fondo.saliendo .modal { animation: none; }
+}

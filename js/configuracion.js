@@ -63,8 +63,9 @@
   const fondo = (a) => a.t === "degradado" || a.tipo === "degradado"
     ? `linear-gradient(${a.ang || 135}deg, ${a.c1}, ${a.c2})` : a.c1;
   const recom = document.getElementById("acento-recom");
-  const c1 = document.getElementById("acento-c1");
-  const c2 = document.getElementById("acento-c2");
+  const c1 = window.SelectorColor.crear("#0078d4", "Primer color", (h) => aplicar(Object.assign({}, actual, { c1: h })));
+  const c2 = window.SelectorColor.crear("#00b7c3", "Segundo color", (h) => aplicar(Object.assign({}, actual, { c2: h })));
+  document.getElementById("acento-c1-sel").replaceWith(c1); document.getElementById("acento-c2-sel").replaceWith(c2);
   const c2caja = document.getElementById("acento-c2-caja");
   const vista = document.getElementById("acento-vista");
   const tipoBtns = document.querySelectorAll("[data-acento-tipo]");
@@ -85,7 +86,7 @@
     tipoBtns.forEach((b) => { const a = b.dataset.acentoTipo === actual.tipo; b.classList.toggle("selected", a); b.setAttribute("aria-pressed", String(a)); });
     angSel.value = String(Number(actual.ang) || 135);
     c2caja.hidden = !grad; angCaja.hidden = !grad;
-    c1.value = actual.c1; c2.value = actual.c2 || actual.c1;
+    c1.fijar(actual.c1); c2.fijar(actual.c2 || actual.c1);
     vista.style.background = fondo(actual);
     const guardada = window.Theme.getAccent();
     muestras.forEach((m, i) => {
@@ -98,8 +99,6 @@
   function aplicar(a) { actual = a; window.Theme.setAccent(a); pintarAcento(); }
   tipoBtns.forEach((b) => b.addEventListener("click", () => aplicar(Object.assign({}, actual, { tipo: b.dataset.acentoTipo, c2: actual.c2 || actual.c1 }))));
   angSel.addEventListener("change", () => aplicar(Object.assign({}, actual, { ang: Number(angSel.value) })));
-  c1.addEventListener("input", () => aplicar(Object.assign({}, actual, { c1: c1.value })));
-  c2.addEventListener("input", () => aplicar(Object.assign({}, actual, { c2: c2.value })));
   document.getElementById("acento-reset").addEventListener("click", () => {
     window.Theme.setAccent(null);
     actual = { tipo: "solido", c1: "#0078d4", c2: "#00b7c3", ang: 135 };

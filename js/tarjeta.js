@@ -12,9 +12,14 @@
     tarjeta.setAttribute("aria-modal", "true"); tarjeta.setAttribute("aria-labelledby", id);
     tarjeta.append(h2, contenido);
     const fondo = document.createElement("div"); fondo.className = "tarjeta-fondo"; fondo.appendChild(tarjeta);
+    let cerrada = false;
     const cerrar = () => {
+      if (cerrada) return; cerrada = true;
       window.removeEventListener("keydown", tecla, true);
-      fondo.remove();
+      fondo.classList.add("saliendo");   // animación de salida; luego se quita del DOM
+      const fin = () => fondo.remove();
+      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) fin();
+      else { fondo.addEventListener("animationend", (e) => { if (e.target === fondo) fin(); }); setTimeout(fin, 400); }
       if (alCerrar) alCerrar();
       if (abridor && abridor.focus && document.body.contains(abridor)) abridor.focus();
     };
