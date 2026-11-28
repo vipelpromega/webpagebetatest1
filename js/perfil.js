@@ -118,7 +118,7 @@
       a.appendChild(ico); fila.appendChild(a);
     });
     if (roles.length) {
-      var q = document.createElement("a"); q.className = "perfil-rol-btn perfil-rol-ayuda"; q.href = "roles.html"; q.textContent = "?";
+      var q = document.createElement("a"); q.className = "perfil-rol-btn perfil-rol-ayuda"; q.href = "#"; q.setAttribute("role", "button"); q.setAttribute("aria-haspopup", "dialog"); q.textContent = "?"; q.addEventListener("click", function (ev) { ev.preventDefault(); abrirAyudaRoles(); });
       q.setAttribute("data-tooltip", t("¿Qué son los roles?")); q.setAttribute("aria-label", t("¿Qué son los roles?"));
       fila.appendChild(q);
     }
@@ -175,6 +175,29 @@
         var n = document.createElement("span"); n.className = "seg-nombre"; n.textContent = u.nombre; var ir2 = A.iconoRol && A.iconoRol(u); if (ir2) n.appendChild(ir2); if (u.mejor && A.iconoMejor) n.appendChild(A.iconoMejor());
         var us = document.createElement("span"); us.className = "seg-usuario"; us.textContent = u.usuario ? "@" + u.usuario : "";
         tx.append(n, us); a.append(av, tx); li.appendChild(a); ul.appendChild(li);
+      });
+    });
+  }
+  // Tarjeta flotante que explica qué es cada rol (lee la lista actual del servidor)
+  function abrirAyudaRoles() {
+    var cont = document.createElement("div");
+    var vacio = document.createElement("p"); vacio.className = "nota"; vacio.textContent = t("Cargando…");
+    var ul = document.createElement("ul"); ul.className = "roles-pag-lista";
+    var cerrar = document.createElement("button"); cerrar.type = "button"; cerrar.className = "btn secondary"; cerrar.textContent = t("Cerrar");
+    var fila = document.createElement("div"); fila.className = "clave-botones"; fila.appendChild(cerrar);
+    var nota = document.createElement("p"); nota.className = "nota"; nota.textContent = t("Si una cuenta tiene varios roles, junto al nombre se muestra el de mayor prioridad (el número más bajo). En su perfil se ven todos.");
+    cont.append(vacio, ul, nota, fila);
+    var tj = window.Tarjeta.abrir(t("¿Qué son los roles?"), cont, cerrar);
+    cerrar.addEventListener("click", tj.cerrar);
+    A.todosRoles().then(function (roles) {
+      vacio.hidden = true;
+      roles.forEach(function (r) {
+        var li = document.createElement("li"); li.className = "roles-pag-item";
+        var ico = A.iconoDeRol(r); ico.removeAttribute("title");
+        var tx = document.createElement("div"); tx.className = "roles-pag-texto";
+        var n = document.createElement("h3"); n.textContent = t(r.nombre); tx.appendChild(n);
+        if (r.descripcion) { var d = document.createElement("p"); d.textContent = t(r.descripcion); tx.appendChild(d); }
+        li.append(ico, tx); ul.appendChild(li);
       });
     });
   }
