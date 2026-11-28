@@ -863,6 +863,7 @@ create table if not exists public.roles (
   sistema     boolean not null default false,
   creado      timestamptz not null default now()
 );
+alter table public.roles add column if not exists color_simbolo text check (color_simbolo is null or color_simbolo ~ '^#[0-9a-fA-F]{6}$');
 create unique index if not exists roles_nombre_un on public.roles (lower(btrim(nombre)));
 create table if not exists public.usuario_roles (
   usuario_id uuid not null references public.usuarios(id) on delete cascade,
@@ -882,7 +883,7 @@ on conflict (id) do nothing;
 create or replace function privado.roles_de(p_uid uuid)
 returns jsonb language sql stable security definer set search_path = '' as $$
   select coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'nombre', r.nombre, 'descripcion', r.descripcion,
-           'prioridad', r.prioridad, 'forma', r.forma, 'simbolo', r.simbolo, 'c1', r.color1, 'c2', r.color2)
+           'prioridad', r.prioridad, 'forma', r.forma, 'simbolo', r.simbolo, 'c1', r.color1, 'c2', r.color2, 'cs', r.color_simbolo)
            order by r.prioridad, r.id), '[]'::jsonb)
     from public.roles r
    where p_uid is not null and (
@@ -896,7 +897,7 @@ revoke all on function privado.roles_de(uuid) from public, anon, authenticated;
 create or replace function public.lista_roles()
 returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_build_object('ok', true, 'roles', coalesce((select jsonb_agg(jsonb_build_object('id', r.id, 'nombre', r.nombre,
-           'descripcion', r.descripcion, 'prioridad', r.prioridad, 'forma', r.forma, 'simbolo', r.simbolo, 'c1', r.color1, 'c2', r.color2)
+           'descripcion', r.descripcion, 'prioridad', r.prioridad, 'forma', r.forma, 'simbolo', r.simbolo, 'c1', r.color1, 'c2', r.color2, 'cs', r.color_simbolo)
            order by r.prioridad, r.id) from public.roles r), '[]'::jsonb));
 $$;
 
@@ -1732,7 +1733,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'no_autorizado');
   end if;
   return jsonb_build_object('ok', true, 'roles', coalesce((select jsonb_agg(jsonb_build_object('id', r.id, 'nombre', r.nombre,
-    'descripcion', r.descripcion, 'prioridad', r.prioridad, 'forma', r.forma, 'simbolo', r.simbolo, 'c1', r.color1, 'c2', r.color2,
+    'descripcion', r.descripcion, 'prioridad', r.prioridad, 'forma', r.forma, 'simbolo', r.simbolo, 'c1', r.color1, 'c2', r.color2, 'cs', r.color_simbolo,
     'sistema', r.sistema,
     'usuarios', case r.id when 'fundador' then (select count(*) from public.usuarios where es_fundador)
                           when 'admin' then (select count(*) from public.usuarios where es_admin_web)
@@ -1741,8 +1742,9 @@ begin
 end $$;
 
 -- Crear (p_id nulo) o editar un rol
+drop function if exists public.admin_guardar_rol(text, text, text, int, text, text, text, text, text);
 create or replace function public.admin_guardar_rol(p_id text, p_nombre text, p_descripcion text, p_prioridad int,
-  p_forma text, p_simbolo text, p_c1 text, p_c2 text, p_maestra text)
+  p_forma text, p_simbolo text, p_c1 text, p_c2 text, p_cs text, p_maestra text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_admin uuid := privado.admin_id();
@@ -1761,14 +1763,14 @@ begin
       return jsonb_build_object('ok', false, 'error', 'demasiados_roles');
     end if;
     v_id := 'r' || substr(md5(random()::text || clock_timestamp()::text), 1, 10);
-    insert into public.roles (id, nombre, descripcion, prioridad, forma, simbolo, color1, color2)
+    insert into public.roles (id, nombre, descripcion, prioridad, forma, simbolo, color1, color2, color_simbolo)
     values (v_id, btrim(coalesce(p_nombre, '')), btrim(coalesce(p_descripcion, '')), coalesce(p_prioridad, 100),
-            coalesce(p_forma, 'dentado'), coalesce(p_simbolo, 'palomita'), coalesce(p_c1, '#1d8cf8'), nullif(p_c2, ''));
+            coalesce(p_forma, 'dentado'), coalesce(p_simbolo, 'palomita'), coalesce(p_c1, '#1d8cf8'), nullif(p_c2, ''), nullif(p_cs, ''));
     perform privado.auditar(v_admin, 'crear_rol', jsonb_build_object('rol', btrim(p_nombre)));
   else
     update public.roles set nombre = btrim(coalesce(p_nombre, '')), descripcion = btrim(coalesce(p_descripcion, '')),
            prioridad = coalesce(p_prioridad, 100), forma = coalesce(p_forma, 'dentado'), simbolo = coalesce(p_simbolo, 'palomita'),
-           color1 = coalesce(p_c1, '#1d8cf8'), color2 = nullif(p_c2, '')
+           color1 = coalesce(p_c1, '#1d8cf8'), color2 = nullif(p_c2, ''), color_simbolo = nullif(p_cs, '')
      where id = v_id;
     if not found then
       return jsonb_build_object('ok', false, 'error', 'no_existe');
@@ -2163,7 +2165,7 @@ revoke all on function public.admin_borrar_registros_perfiles(bigint[], boolean,
 revoke all on function public.admin_suspender_cuenta(uuid, boolean, text) from public, anon, authenticated;
 revoke all on function public.admin_asignar_admin_web(uuid, boolean, text) from public, anon, authenticated;
 revoke all on function public.admin_listar_roles() from public, anon, authenticated;
-revoke all on function public.admin_guardar_rol(text, text, text, int, text, text, text, text, text) from public, anon, authenticated;
+revoke all on function public.admin_guardar_rol(text, text, text, int, text, text, text, text, text, text) from public, anon, authenticated;
 revoke all on function public.admin_borrar_rol(text, text) from public, anon, authenticated;
 revoke all on function public.admin_asignar_rol(uuid, text, boolean, text) from public, anon, authenticated;
 revoke all on function public.lista_roles() from public, anon, authenticated;
@@ -2229,7 +2231,7 @@ grant execute on function public.admin_registros(int)              to authentica
 grant execute on function public.admin_suspender_cuenta(uuid, boolean, text) to authenticated;
 grant execute on function public.admin_asignar_admin_web(uuid, boolean, text) to authenticated;
 grant execute on function public.admin_listar_roles() to authenticated;
-grant execute on function public.admin_guardar_rol(text, text, text, int, text, text, text, text, text) to authenticated;
+grant execute on function public.admin_guardar_rol(text, text, text, int, text, text, text, text, text, text) to authenticated;
 grant execute on function public.admin_borrar_rol(text, text) to authenticated;
 grant execute on function public.admin_asignar_rol(uuid, text, boolean, text) to authenticated;
 grant execute on function public.lista_roles() to anon, authenticated;

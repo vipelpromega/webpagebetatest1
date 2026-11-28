@@ -511,7 +511,7 @@
     var conForma = forma !== "ninguna";
     if (conForma) h += '<path d="' + FORMAS[forma] + '" fill="' + relleno + '" stroke="' + relleno + '" stroke-width="1.4" stroke-linejoin="round"/>';
     if (sim !== "ninguno") {
-      var s = SIMBOLOS[sim], tinta = conForma ? "#fff" : relleno;
+      var s = SIMBOLOS[sim], tinta = conForma ? (RE_COLOR.test(r.cs || "") ? r.cs : "#ffffff") : relleno;
       var g = conForma ? "" : ' transform="translate(12 12) scale(1.7) translate(-12 -12)"';
       h += s.t === "s"
         ? '<path d="' + s.d + '" fill="none" stroke="' + tinta + '" stroke-width="' + (conForma ? 2.1 : 1.6) + '" stroke-linecap="round" stroke-linejoin="round"' + g + "/>"

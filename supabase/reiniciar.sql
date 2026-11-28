@@ -19,7 +19,7 @@ drop function if exists public.mi_historial(text);
 drop function if exists public.guardar_descripcion(text, text);
 drop function if exists public.lista_roles();
 drop function if exists public.admin_listar_roles();
-drop function if exists public.admin_guardar_rol(text, text, text, int, text, text, text, text, text);
+drop function if exists public.admin_guardar_rol(text, text, text, int, text, text, text, text, text, text);
 drop function if exists public.admin_borrar_rol(text, text);
 drop function if exists public.admin_asignar_rol(uuid, text, boolean, text);
 drop function if exists public.mis_preferencias(text);
